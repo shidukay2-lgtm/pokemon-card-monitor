@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: pokemon-card-monitor
+    runtime: node
+    buildCommand: npm install && node seed.js
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: RAKUTEN_APP_ID
+        sync: false
+      - key: YAHOO_APP_ID
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false

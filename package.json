@@ -1,0 +1,24 @@
+{
+  "name": "pokemon-card-monitor",
+  "version": "1.0.0",
+  "description": "ポケモンカード価格監視・購入支援ツール",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node seed.js",
+    "build": "npm install && node seed.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "sql.js": "^1.11.0",
+    "axios": "^1.7.0",
+    "cheerio": "^1.0.0",
+    "node-cron": "^3.0.3",
+    "dotenv": "^16.4.0",
+    "nodemailer": "^6.9.0",
+    "web-push": "^3.6.0",
+    "bottleneck": "^2.19.5",
+    "p-queue": "^8.0.1"
+  }
+}

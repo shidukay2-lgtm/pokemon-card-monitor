@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ポケモンカード価格監視・購入支援ツール - 複数ショップの価格を自動巡回・比較し、目標価格でアラート通知">
+  <meta name="theme-color" content="#6366f1">
+  <title>ポケカ価格モニター</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- サイドバーオーバーレイ（モバイル用） -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- サイドバー -->
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <span class="logo">⚡</span>
+        <h1>ポケカモニター</h1>
+      </div>
+      <div class="sidebar-nav">
+        <button class="nav-item active" data-view="dashboard" id="nav-dashboard">
+          <span class="icon">📊</span> ダッシュボード
+        </button>
+        <button class="nav-item" data-view="cards" id="nav-cards">
+          <span class="icon">🃏</span> カード管理
+        </button>
+        <button class="nav-item" data-view="shops" id="nav-shops">
+          <span class="icon">🏪</span> ショップ管理
+        </button>
+        <button class="nav-item" data-view="alerts" id="nav-alerts">
+          <span class="icon">🔔</span> アラート設定
+        </button>
+      </div>
+      <div style="padding:12px;border-top:1px solid var(--border);font-size:.75rem;color:var(--text-muted)">
+        v1.0.0 | 機能重視設計
+      </div>
+    </nav>
+
+    <!-- メインエリア -->
+    <div class="main-area">
+      <!-- ヘッダー -->
+      <header class="top-header">
+        <button class="menu-toggle" id="menu-toggle">☰</button>
+        <span class="header-title" id="header-title">📊 ダッシュボード</span>
+        <div class="header-spacer"></div>
+
+        <!-- 巡回コントロール -->
+        <div class="patrol-control">
+          <span class="patrol-label">自動巡回</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="patrol-toggle">
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="patrol-status stopped" id="patrol-status-badge">⏹ 停止中</span>
+          <div class="interval-control">
+            <input type="number" id="patrol-interval-input" value="30" min="5" max="120" title="巡回間隔(分)">
+            <span>分</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- コンテンツ -->
+      <main class="content">
+        <div id="view-dashboard" class="view active">
+          <div class="loading-overlay"><span class="spinner"></span> 読み込み中...</div>
+        </div>
+        <div id="view-cards" class="view">
+          <div class="loading-overlay"><span class="spinner"></span> 読み込み中...</div>
+        </div>
+        <div id="view-shops" class="view">
+          <div class="loading-overlay"><span class="spinner"></span> 読み込み中...</div>
+        </div>
+        <div id="view-alerts" class="view">
+          <div class="loading-overlay"><span class="spinner"></span> 読み込み中...</div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script src="/js/cards.js"></script>
+  <script src="/js/shops.js"></script>
+  <script src="/js/alerts.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
