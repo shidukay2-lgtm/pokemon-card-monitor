@@ -9,6 +9,7 @@ const { CardRushScraper } = require('../providers/cardrush-scraper');
 const { MercariScraper } = require('../providers/mercari-scraper');
 const { LinkOnlyProvider } = require('../providers/link-only');
 const { getPriceTracker } = require('./price-tracker');
+const { filterResults } = require('../utils/relevance-filter');
 
 const logger = new Logger('[スケジューラー]');
 
@@ -104,8 +105,12 @@ class Scheduler {
             if (!ProviderClass) { this.progress.current++; continue; }
             const provider = new ProviderClass(shop);
             const searchResults = await provider.search(card.name);
-            tracker.saveBestShopResult(db, card.id, shop, searchResults, card.name);
-            results.push({ card: card.name, shop: shop.name, count: searchResults.length });
+            // 関連性フィルター適用（AI不使用・軽量処理）
+            const filtered = filterResults(searchResults, card);
+            const removed = searchResults.length - filtered.length;
+            if (removed > 0) logger.info(`[フィルター] ${card.name}@${shop.name}: ${searchResults.length}件→${filtered.length}件 (${removed}件除外)`);
+            tracker.saveBestShopResult(db, card.id, shop, filtered, card.name);
+            results.push({ card: card.name, shop: shop.name, count: filtered.length });
           } catch (error) {
             logger.error(`エラー: ${card.name} @ ${shop.name}: ${error.message}`);
           }
