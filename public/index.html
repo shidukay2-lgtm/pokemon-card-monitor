@@ -2,17 +2,30 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="ポケモンカード価格監視・購入支援ツール - 複数ショップの価格を自動巡回・比較し、目標価格でアラート通知">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="description" content="ポケモンカード価格監視ツール">
   <meta name="theme-color" content="#6366f1">
   <title>ポケカ価格モニター</title>
   <link rel="manifest" href="/manifest.json">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* 即座に表示されるローディング画面 */
+    #app-loader{position:fixed;inset:0;background:#0f1117;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .3s}
+    #app-loader.hide{opacity:0;pointer-events:none}
+    #app-loader h2{color:#e4e6ef;font-size:1.2rem;margin-top:16px;font-family:-apple-system,sans-serif}
+    #app-loader p{color:#6b7280;font-size:.85rem;margin-top:8px;font-family:-apple-system,sans-serif}
+    #app-loader .lds{width:40px;height:40px;border:3px solid #2d3244;border-top:3px solid #6366f1;border-radius:50%;animation:sp .8s linear infinite}
+    @keyframes sp{to{transform:rotate(360deg)}}
+  </style>
 </head>
 <body>
+  <!-- 即座表示ローダー -->
+  <div id="app-loader">
+    <div class="lds"></div>
+    <h2>⚡ ポケカモニター</h2>
+    <p>データ読み込み中...</p>
+  </div>
+
   <div class="app-layout">
     <!-- サイドバーオーバーレイ（モバイル用） -->
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
@@ -83,13 +96,13 @@
     </div>
   </div>
 
-  <!-- Scripts -->
-  <script src="/js/api.js"></script>
-  <script src="/js/components.js"></script>
-  <script src="/js/dashboard.js"></script>
-  <script src="/js/cards.js"></script>
-  <script src="/js/shops.js"></script>
-  <script src="/js/alerts.js"></script>
-  <script src="/js/app.js"></script>
+  <!-- Scripts (defer) -->
+  <script src="/js/api.js" defer></script>
+  <script src="/js/components.js" defer></script>
+  <script src="/js/dashboard.js" defer></script>
+  <script src="/js/cards.js" defer></script>
+  <script src="/js/shops.js" defer></script>
+  <script src="/js/alerts.js" defer></script>
+  <script src="/js/app.js" defer></script>
 </body>
 </html>

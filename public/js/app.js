@@ -20,6 +20,9 @@ const App = {
     document.getElementById('patrol-toggle')?.addEventListener('change', () => this.onPatrolToggle());
     // 間隔変更
     document.getElementById('patrol-interval-input')?.addEventListener('change', (e) => this.onIntervalChange(e));
+    // ローディング画面を非表示
+    const loader = document.getElementById('app-loader');
+    if (loader) { loader.classList.add('hide'); setTimeout(() => loader.remove(), 500); }
   },
 
   restoreState() {
