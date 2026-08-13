@@ -4,7 +4,6 @@ const { throttledRequest } = require('../utils/rate-limiter');
 
 class MercariScraper extends BaseProvider {
   async search(keyword) {
-    // メルカリ検索（価格昇順・販売中のみ）
     const searchUrl = `https://jp.mercari.com/search?keyword=${encodeURIComponent('ポケモンカード ' + keyword)}&status=on_sale&order=asc&sort=price`;
     this.logger.info(`検索: ${keyword}`);
 
@@ -17,38 +16,40 @@ class MercariScraper extends BaseProvider {
     try {
       const $ = cheerio.load(html);
       const results = [];
+      const seenIds = new Set();
 
-      // 商品リンクから個別商品のIDを収集
-      const itemIds = [];
+      // 各 <a href="/item/mXXXX"> 内のテキストから商品ID・価格・商品名を正確に抽出
       $('a[href*="/item/m"]').each((_, el) => {
-        const href = $(el).attr('href') || '';
-        const match = href.match(/\/item\/(m\d+)/);
-        if (match && !itemIds.includes(match[1])) {
-          itemIds.push(match[1]);
-        }
-      });
+        const $a = $(el);
+        const href = $a.attr('href') || '';
+        const text = $a.text().replace(/\s+/g, ' ').trim();
 
-      // search-item-grid内のテキストから価格を抽出
-      const gridText = $('[data-testid="search-item-grid"]').text();
-      // パターン: ¥XX,XXX + 商品名
-      const pricePattern = /[¥￥]([\d,]+)([\s\S]*?)(?=[¥￥]|$)/g;
-      let match;
-      let itemIndex = 0;
+        // 商品IDを抽出
+        const idMatch = href.match(/\/item\/(m\d+)/);
+        if (!idMatch) return;
+        const itemId = idMatch[1];
 
-      while ((match = pricePattern.exec(gridText)) !== null && itemIndex < 30) {
-        const price = parseInt(match[1].replace(/,/g, ''), 10);
-        const nameText = match[2].trim();
+        // 重複チェック
+        if (seenIds.has(itemId)) return;
 
-        if (isNaN(price) || price <= 0) continue;
-        // 「現在」で始まるのはオークション価格、スキップ
-        if (nameText.startsWith('現在')) continue;
-        // 短すぎる名前はスキップ
-        if (nameText.length < 3) continue;
+        // テキストが短すぎるリンクはスキップ（サムネイルのみのリンク等）
+        if (text.length < 5) return;
 
-        // 商品名を整形（改行やスペースを正規化）
-        const name = nameText.replace(/\s+/g, ' ').substring(0, 100);
-        const itemId = itemIds[itemIndex] || null;
-        const productUrl = itemId ? `https://jp.mercari.com/item/${itemId}` : searchUrl;
+        // 価格を抽出（テキスト先頭の ¥XX,XXX パターン）
+        const priceMatch = text.match(/[¥￥]([\d,]+)/);
+        if (!priceMatch) return;
+        const price = parseInt(priceMatch[1].replace(/,/g, ''), 10);
+        if (isNaN(price) || price <= 0) return;
+
+        // 「現在 ¥XX,XXX」はオークション → スキップ
+        if (text.startsWith('現在')) return;
+
+        // 商品名を抽出（価格部分を除いたテキスト）
+        const name = text.replace(/^[¥￥][\d,]+/, '').trim();
+        if (name.length < 3) return;
+
+        seenIds.add(itemId);
+        const productUrl = `https://jp.mercari.com/item/${itemId}`;
 
         results.push(this.createResult({
           name,
@@ -56,8 +57,7 @@ class MercariScraper extends BaseProvider {
           stockStatus: 'in_stock',
           productUrl,
         }));
-        itemIndex++;
-      }
+      });
 
       this.logger.info(`${results.length}件の結果を取得`);
       return results.slice(0, 20);
@@ -67,7 +67,6 @@ class MercariScraper extends BaseProvider {
     }
   }
 
-  // SSR用のfetch（Googlebot UA）
   async fetchHtmlBot(url) {
     const axios = require('axios');
     try {
