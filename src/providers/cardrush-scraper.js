@@ -17,17 +17,27 @@ class CardRushScraper extends BaseProvider {
       const $ = cheerio.load(html);
       const results = [];
 
-      // カードラッシュの商品構造:
-      // div.item_box > div.item_data > a.item_data_link > div.item_name > p.goods_name
-      // div.item_box > div.item_data > div.price > p.selling_price > span.figure
-      $('.item_box, .ajax_item_box').each((_, el) => {
+      // カードラッシュのHTML構造:
+      // 検索結果: div.ajax_list_box > div.ajax_itemlist_box > ul.item_list > li.list_item_cell
+      //   各liの中: div.item_data > a.item_data_link > div.global_photo.itemph_item_group_XXXXX
+      // 新着/おすすめは itemph_newitem / itemph_recommend を持つ → 除外
+      
+      // 検索結果セクション(ajax_list_box)内のlist_item_cellを取得
+      $('.ajax_list_box li.list_item_cell, .ajax_list_box .list_item_cell').each((_, el) => {
         const $el = $(el);
 
-        // 商品名
-        const name = $el.find('.goods_name, .item_name').first().text().trim();
+        // itemph_newitem or itemph_recommend が含まれていたらスキップ
+        const elHtml = $el.html() || '';
+        if (elHtml.includes('itemph_newitem') || elHtml.includes('itemph_recommend')) return;
+
+        // 商品名（goods_name、またはalt属性から）
+        let name = $el.find('.goods_name').first().text().trim();
+        if (!name) {
+          name = $el.find('img[alt]').first().attr('alt') || '';
+        }
         if (!name) return;
 
-        // 価格 (span.figure内の「XXX円」)
+        // 価格
         const priceText = $el.find('.selling_price .figure, .price .figure').first().text().trim();
         const priceMatch = priceText.match(/([\d,]+)\s*円?/);
         if (!priceMatch) return;
@@ -38,10 +48,10 @@ class CardRushScraper extends BaseProvider {
         const link = $el.find('a.item_data_link, a').first().attr('href');
         const productUrl = link ? (link.startsWith('http') ? link : `https://www.cardrush-pokemon.jp${link}`) : '';
 
-        // 在庫状態（カートボタンの有無で判定）
-        const hasCart = $el.find('.itemlist_cartbutton, [class*="productadd"]').length > 0;
-        const soldOut = $el.text().includes('売切') || $el.text().includes('SOLD') || $el.text().includes('品切');
-        const stockStatus = soldOut ? 'out_of_stock' : (hasCart ? 'in_stock' : 'unknown');
+        // 在庫状態
+        const text = $el.text();
+        const soldOut = text.includes('売切') || text.includes('SOLD') || text.includes('品切');
+        const stockStatus = soldOut ? 'out_of_stock' : 'in_stock';
 
         results.push(this.createResult({ name, price, stockStatus, productUrl }));
       });
