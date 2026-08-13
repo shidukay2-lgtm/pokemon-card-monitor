@@ -7,11 +7,18 @@ class SurugayaScraper extends BaseProvider {
     const url = this.getSearchUrl(keyword);
     this.logger.info(`検索: ${keyword}`);
 
-    const html = await throttledRequest(url, (u) => this.fetchHtml(u), {
-      intervalMs: this.shop.request_interval_ms || 3000,
-    });
+    let html;
+    try {
+      html = await throttledRequest(url, (u) => this.fetchHtml(u), {
+        intervalMs: this.shop.request_interval_ms || 3000,
+      });
+    } catch (e) {
+      // 403/404等のHTTPエラーはリンクのみ返す（クラウドIPブロック対策）
+      this.logger.warn(`アクセスブロック(${e.message}) - 検索リンクで代替`);
+      return [this.createResult({ name: keyword, price: null, stockStatus: 'unknown', productUrl: url })];
+    }
 
-    if (!html) return [];
+    if (!html) return [this.createResult({ name: keyword, price: null, stockStatus: 'unknown', productUrl: url })];
 
     try {
       const $ = cheerio.load(html);

@@ -33,26 +33,31 @@ function scoreRelevance(productName, card) {
   if (!productName || !card.name) return 0;
 
   const pName = normalize(productName);
-  const cName = normalize(card.name);
 
-  // ステップ1: カード名が商品名に含まれているか
-  if (!pName.includes(cName)) return 0;
+  // カード名からレアリティ部分を分離
+  // 例: "ナンジャモ SR" → baseName="ナンジャモ", embeddedRarity="sr"
+  const rarityPattern = /\s+(sar|sr|ur|hr|ar|chr|csr|rr|r|u|c|n|tr|pr|sa|s|k|a)$/i;
+  const nameNorm = normalize(card.name);
+  const rarityMatch = nameNorm.match(rarityPattern);
+  const baseName = rarityMatch ? nameNorm.replace(rarityPattern, '').trim() : nameNorm;
+  const embeddedRarity = rarityMatch ? rarityMatch[1] : null;
+  const rarity = card.rarity ? normalize(card.rarity) : embeddedRarity;
+
+  // ステップ1: ベースカード名が商品名に含まれているか
+  if (!pName.includes(baseName)) return 0;
 
   let score = 50; // ベーススコア
 
   // ステップ2: 部分一致チェック（ナンジャモ → ナンジャモの全力 を除外）
-  if (!isExactCardName(pName, cName)) {
-    // カード名の後ろに「の」「と」等が続く場合は別カードの可能性
+  if (!isExactCardName(pName, baseName)) {
     score -= 40;
   }
 
   // ステップ3: レアリティが一致するか
-  if (card.rarity) {
-    const rarity = normalize(card.rarity);
+  if (rarity) {
     if (pName.includes(rarity)) {
       score += 20;
     } else {
-      // レアリティ指定ありなのに商品名にない → 減点
       score -= 15;
     }
   }
@@ -80,7 +85,7 @@ function scoreRelevance(productName, card) {
 
   // ステップ7: 拡張パック名がカード名に含まれる場合の誤検出チェック
   // 例: カード名「レックウザ」で検索 → 「レックウザex拡張パック」がヒット
-  if (isExpansionPackProduct(pName, cName)) {
+  if (isExpansionPackProduct(pName, baseName)) {
     score -= 25;
   }
 
