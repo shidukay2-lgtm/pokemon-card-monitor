@@ -75,4 +75,16 @@ router.put('/interval', async (req, res) => {
   }
 });
 
+// 価格データリセット（古い誤データを削除）
+router.delete('/prices', async (req, res) => {
+  try {
+    const db = await getDB();
+    db.db.run('DELETE FROM price_records');
+    db._save();
+    res.json({ success: true, message: '全価格レコードを削除しました' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;
