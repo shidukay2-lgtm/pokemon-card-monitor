@@ -2,8 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { getAiAnalyzer } = require('../services/ai-analyzer');
 
-// カード分析
-router.post('/analyze/:cardId', async (req, res) => {
+// カード分析 (POST & GET 対応)
+router.all('/analyze/:cardId', async (req, res) => {
   try {
     const analyzer = getAiAnalyzer();
     const result = await analyzer.analyzeCard(parseInt(req.params.cardId));
@@ -29,10 +29,10 @@ router.post('/analyze-batch', async (req, res) => {
 });
 
 // キャッシュされた分析結果を取得
-router.get('/analysis/:cardId', (req, res) => {
+router.get('/analysis/:cardId', async (req, res) => {
   try {
     const analyzer = getAiAnalyzer();
-    const cached = analyzer.getCachedAnalysis(parseInt(req.params.cardId));
+    const cached = await analyzer.getCachedAnalysis(parseInt(req.params.cardId));
     res.json({ success: true, data: cached });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
