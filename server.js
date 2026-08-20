@@ -18,6 +18,7 @@ app.use('/api/shops', require('./src/routes/shops'));
 app.use('/api/monitor', require('./src/routes/monitor'));
 app.use('/api/alerts', require('./src/routes/alerts'));
 app.use('/api/ai', require('./src/routes/ai'));
+app.use('/api/filter-settings', require('./src/routes/filter-settings'));
 
 // 設定API
 app.get('/api/settings', async (req, res) => {
