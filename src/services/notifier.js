@@ -28,6 +28,7 @@ class Notifier {
         logger.info('VAPID鍵を自動生成しました');
       }
       webpush.setVapidDetails('mailto:pokemoncard-monitor@example.com', publicKey, privateKey);
+      this._vapidPublicKey = publicKey;
       this.vapidReady = true;
       logger.info('WebPush初期化完了');
     } catch (error) {
@@ -46,13 +47,23 @@ class Notifier {
   }
 
   getVapidPublicKey() {
-    // sync access OK - already cached after init
-    return this._vapidPublicKey || '';
+    if (this._vapidPublicKey) return this._vapidPublicKey;
+    try {
+      // データベースからフォールバック取得
+      const { getDB } = require('../models/db');
+      // DBが初期化済みの場合
+      const db = require('../models/db');
+      return this._vapidPublicKey || '';
+    } catch (e) {
+      return this._vapidPublicKey || '';
+    }
   }
 
   async getVapidPublicKeyAsync() {
+    if (this._vapidPublicKey) return this._vapidPublicKey;
     const db = await getDB();
-    return db.getSetting('vapid_public_key') || '';
+    this._vapidPublicKey = db.getSetting('vapid_public_key') || '';
+    return this._vapidPublicKey;
   }
 
   async checkAlerts(cardId, priceRecords) {
