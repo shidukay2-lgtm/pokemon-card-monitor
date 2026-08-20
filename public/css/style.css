@@ -713,6 +713,41 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   margin-top: 2px;
 }
 
+/* モバイル用 AI診断ボックス */
+.mobile-ai-box {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(34, 197, 94, 0.08) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mobile-ai-box:hover {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.14) 0%, rgba(34, 197, 94, 0.14) 100%);
+}
+.mobile-ai-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.mobile-ai-title {
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: var(--accent-hover);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.mobile-ai-comment {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
 /* ========== 強制モード切り替え（bodyクラス） ========== */
 body.mode-mobile .sidebar { display: none !important; }
 body.mode-mobile .main-area { margin-left: 0 !important; padding-bottom: 70px !important; }
