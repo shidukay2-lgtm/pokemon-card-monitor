@@ -312,10 +312,36 @@ class DB {
 
   // ========== AI分析 ==========
   getAiAnalysis(cardId) {
-    return this._get(
+    const row = this._get(
       'SELECT * FROM ai_analyses WHERE card_id = ? ORDER BY analyzed_at DESC LIMIT 1',
       [cardId]
     );
+    if (!row) return null;
+    try {
+      const parsed = JSON.parse(row.analysis_json);
+      return { ...parsed, analyzed_at: row.analyzed_at };
+    } catch {
+      return null;
+    }
+  }
+
+  getAllLatestAiAnalyses() {
+    const rows = this._all(
+      `SELECT a1.* FROM ai_analyses a1
+       INNER JOIN (
+         SELECT card_id, MAX(id) as max_id
+         FROM ai_analyses
+         GROUP BY card_id
+       ) a2 ON a1.id = a2.max_id`
+    );
+    const map = {};
+    rows.forEach(r => {
+      try {
+        const parsed = JSON.parse(r.analysis_json);
+        map[r.card_id] = { ...parsed, analyzed_at: r.analyzed_at };
+      } catch (e) {}
+    });
+    return map;
   }
 
   saveAiAnalysis(cardId, analysisJson, tokenCount) {
