@@ -7,11 +7,17 @@ class YuyuteiScraper extends BaseProvider {
     const url = this.getSearchUrl(keyword);
     this.logger.info(`検索: ${keyword}`);
 
-    const html = await throttledRequest(url, (u) => this.fetchHtml(u), {
-      intervalMs: this.shop.request_interval_ms || 3000,
-    });
+    let html;
+    try {
+      html = await throttledRequest(url, (u) => this.fetchHtml(u), {
+        intervalMs: this.shop.request_interval_ms || 3000,
+      });
+    } catch (e) {
+      this.logger.warn(`アクセスブロック(${e.message}) - 検索リンクで代替`);
+      return [this.createResult({ name: keyword, price: null, stockStatus: 'unknown', productUrl: url })];
+    }
 
-    if (!html) return [];
+    if (!html) return [this.createResult({ name: keyword, price: null, stockStatus: 'unknown', productUrl: url })];
 
     try {
       const $ = cheerio.load(html);
@@ -27,7 +33,7 @@ class YuyuteiScraper extends BaseProvider {
         if (!name || !priceText) return;
 
         const price = parseInt(priceText.replace(/[^0-9]/g, ''), 10);
-        if (isNaN(price)) return;
+        if (isNaN(price) || price <= 0) return;
 
         const productUrl = link ? (link.startsWith('http') ? link : `https://yuyu-tei.jp${link}`) : '';
         const stockText = $el.text();
@@ -37,10 +43,13 @@ class YuyuteiScraper extends BaseProvider {
       });
 
       this.logger.info(`${results.length}件の結果を取得`);
+      if (results.length === 0) {
+        return [this.createResult({ name: keyword, price: null, stockStatus: 'unknown', productUrl: url })];
+      }
       return results;
     } catch (error) {
       this.logger.error(`HTML解析エラー: ${error.message}`);
-      return [];
+      return [this.createResult({ name: keyword, price: null, stockStatus: 'unknown', productUrl: url })];
     }
   }
 }
