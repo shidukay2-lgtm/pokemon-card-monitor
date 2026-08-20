@@ -82,7 +82,15 @@ class AiAnalyzer {
       if (min <= card.target_price_min) { rating = 5; }
       if (min > card.target_price_max) { verdict = 'expensive'; rating = 2; }
     }
-    return { rating, trend: 'stable', verdict, comment: `最安¥${min.toLocaleString()} 平均¥${avg.toLocaleString()}`, source: 'local', stats: { min, max, avg, count: validPrices.length } };
+    const result = { rating, trend: 'stable', verdict, comment: `最安¥${min.toLocaleString()} 平均¥${avg.toLocaleString()}`, source: 'local', stats: { min, max, avg, count: validPrices.length } };
+    if (cardId) {
+      try {
+        db.saveAiAnalysis(cardId, result, 0);
+      } catch (e) {
+        logger.warn(`キャッシュ保存失敗: ${e.message}`);
+      }
+    }
+    return result;
   }
 
   _emptyAnalysis(comment) {
