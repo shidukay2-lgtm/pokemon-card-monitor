@@ -29,14 +29,17 @@ const Alerts = {
       <div class="panel">
         <div class="panel-header">
           <span class="panel-title">🔔 アラート設定</span>
-          <div style="display:flex;gap:6px">
-            <button class="btn btn-sm btn-secondary" onclick="Alerts.subscribePush()">📱 通知を許可</button>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-sm btn-secondary" onclick="Alerts.subscribePush()">📱 通知許可</button>
             <button class="btn btn-sm btn-secondary" onclick="Alerts.testNotify()">🧪 テスト</button>
             <button class="btn btn-sm btn-primary" onclick="Alerts.showAddModal()">＋ アラート追加</button>
           </div>
         </div>
         <div class="panel-body" style="padding:0">
-          <div class="table-wrapper">${this.renderTable()}</div>
+          <!-- PC用テーブル -->
+          <div class="pc-view-only table-wrapper">${this.renderTable()}</div>
+          <!-- スマホ用カードリスト -->
+          <div class="mobile-view-only" style="padding:10px">${this.renderMobileAlerts()}</div>
         </div>
       </div>
       <div class="panel">
@@ -77,6 +80,54 @@ const Alerts = {
       </tr>`;
     });
     html += '</tbody></table>';
+    return html;
+  },
+
+  renderMobileAlerts() {
+    if (this.alerts.length === 0) {
+      return '<div class="empty-state"><div class="icon">🔔</div><p>アラートが設定されていません</p></div>';
+    }
+
+    const condLabels = { price_below: '以下で通知', price_above: '以上で通知', in_stock: '入荷で通知' };
+    let html = '<div class="mobile-card-grid">';
+
+    this.alerts.forEach(a => {
+      html += `
+        <div class="mobile-card-card">
+          <div class="mobile-card-top">
+            <div>
+              <div class="mobile-card-title">${a.card_name}</div>
+              ${a.set_name ? `<div class="mobile-card-meta">${a.set_name}</div>` : ''}
+            </div>
+            ${a.is_active ? '<span class="badge badge-success">有効</span>' : '<span class="badge badge-muted">無効</span>'}
+          </div>
+
+          <div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:6px;margin:8px 0;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:0.75rem;color:var(--text-muted)">条件</div>
+              <div style="font-weight:bold">${condLabels[a.condition_type] || a.condition_type}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:0.75rem;color:var(--text-muted)">基準価格</div>
+              <div style="font-weight:bold;color:var(--accent-hover)">${a.condition_type === 'in_stock' ? '-' : Components.formatPrice(a.condition_value)}</div>
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <div style="display:flex;gap:4px">
+              ${a.notify_browser ? '<span class="badge badge-info">ブラウザ</span>' : ''}
+              ${a.notify_email ? '<span class="badge badge-warning">メール</span>' : ''}
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-sm btn-secondary" onclick="Alerts.toggleActive(${a.id}, ${a.is_active})">${a.is_active ? '⏸ 停止' : '▶ 有効化'}</button>
+              <button class="btn btn-sm btn-danger" onclick="Alerts.remove(${a.id})">🗑 削除</button>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    html += '</div>';
     return html;
   },
 
