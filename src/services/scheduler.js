@@ -10,6 +10,7 @@ const { MercariScraper } = require('../providers/mercari-scraper');
 const { LinkOnlyProvider } = require('../providers/link-only');
 const { getPriceTracker } = require('./price-tracker');
 const { filterResults } = require('../utils/relevance-filter');
+const { getOfficialCardService } = require('./official-card-service');
 
 const logger = new Logger('[スケジューラー]');
 
@@ -38,10 +39,22 @@ class Scheduler {
     const db = await getDB();
     const enabled = db.getSetting('patrol_enabled');
     const interval = db.getSetting('patrol_interval');
+    const savedLastRun = db.getSetting('last_patrol_time');
+
+    if (savedLastRun) {
+      this.lastRun = savedLastRun;
+    } else {
+      // 価格レコードから最新日時を取得
+      const lastRecord = db._get('SELECT MAX(fetched_at) as last_time FROM price_records WHERE price IS NOT NULL');
+      if (lastRecord && lastRecord.last_time) {
+        this.lastRun = lastRecord.last_time;
+      }
+    }
+
     this.isEnabled = enabled !== 'false';
     this.intervalMinutes = parseInt(interval) || 30;
     if (this.isEnabled) this.start();
-    logger.info(`初期化完了 - 自動巡回: ${this.isEnabled ? 'ON' : 'OFF'}, 間隔: ${this.intervalMinutes}分`);
+    logger.info(`初期化完了 - 自動巡回: ${this.isEnabled ? 'ON' : 'OFF'}, 間隔: ${this.intervalMinutes}分, 最終巡回: ${this.lastRun || 'なし'}`);
   }
 
   start() {
@@ -91,6 +104,8 @@ class Scheduler {
 
     const db = await getDB();
     const tracker = await getPriceTracker();
+    const officialService = getOfficialCardService();
+    const filterSettings = db.getFilterSettings();
     const cards = db.getActiveCards();
     const shops = db.getActiveShops().filter(s => s.scrape_enabled);
     this.progress.total = cards.length * shops.length;
@@ -98,6 +113,18 @@ class Scheduler {
     const results = [];
 
     try {
+      // 巡回前に未入力のセット名・型番を公式情報から自動補完
+      for (const card of cards) {
+        if (!card.set_name || !card.card_number) {
+          const filled = await officialService.autoFillCard(card, db);
+          if (filled._autoFilled) {
+            card.set_name = filled.set_name;
+            card.card_number = filled.card_number;
+            card.rarity = filled.rarity;
+          }
+        }
+      }
+
       for (const card of cards) {
         for (const shop of shops) {
           try {
@@ -105,8 +132,8 @@ class Scheduler {
             if (!ProviderClass) { this.progress.current++; continue; }
             const provider = new ProviderClass(shop);
             const searchResults = await provider.search(card.name);
-            // 関連性フィルター適用（AI不使用・軽量処理）
-            const filtered = filterResults(searchResults, card);
+            // 関連性フィルター適用（他TCG/グッズ除外・型番/セット名照合・カスタム設定）
+            const filtered = filterResults(searchResults, card, filterSettings);
             const removed = searchResults.length - filtered.length;
             if (removed > 0) logger.info(`[フィルター] ${card.name}@${shop.name}: ${searchResults.length}件→${filtered.length}件 (${removed}件除外)`);
             tracker.saveBestShopResult(db, card.id, shop, filtered, card.name);
@@ -118,6 +145,7 @@ class Scheduler {
         }
       }
       this.lastRun = new Date().toISOString();
+      this._saveSetting('last_patrol_time', this.lastRun);
       this._calcNextRun();
       logger.info(`巡回完了 - ${results.length}件処理`);
       return { success: true, results, timestamp: this.lastRun };
