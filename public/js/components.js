@@ -79,8 +79,13 @@ const Components = {
   // 日付フォーマット
   formatDate(dateStr) {
     if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+    // '2026-08-20 12:42:36' 形式または ISO形式に対応
+    const formattedStr = typeof dateStr === 'string' && !dateStr.includes('T') && dateStr.includes(' ') 
+      ? dateStr.replace(' ', 'T') 
+      : dateStr;
+    const d = new Date(formattedStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
   },
 
   // 在庫バッジ
