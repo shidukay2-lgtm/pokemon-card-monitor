@@ -28,6 +28,19 @@ class DB {
     // スキーマ適用
     const schema = fs.readFileSync(path.join(__dirname, '../../database/schema.sql'), 'utf8');
     this.db.exec(schema);
+
+    // 既存テーブルのカラムマイグレーション（include_keywords, exclude_keywords）
+    try {
+      this.db.run('ALTER TABLE cards ADD COLUMN include_keywords TEXT DEFAULT ""');
+    } catch (e) { /* すでに存在する場合は無視 */ }
+    try {
+      this.db.run('ALTER TABLE cards ADD COLUMN exclude_keywords TEXT DEFAULT ""');
+    } catch (e) { /* すでに存在する場合は無視 */ }
+    // 駿河屋のカテゴリURL更新
+    try {
+      this.db.run("UPDATE shops SET search_url_pattern = 'https://www.suruga-ya.jp/search?category=50101&search_word={keyword}' WHERE name = '駿河屋' AND search_url_pattern LIKE '%category=&%'");
+    } catch (e) { /* ignore */ }
+
     this._save();
     this._ready = true;
   }
@@ -60,9 +73,15 @@ class DB {
   _run(sql, params = []) {
     this.db.run(sql, params);
     this._save();
-    // lastInsertRowid 相当
-    const result = this._get('SELECT last_insert_rowid() as id');
-    return { lastInsertRowid: result ? result.id : 0 };
+    try {
+      const res = this.db.exec('SELECT last_insert_rowid() as id');
+      if (res.length > 0 && res[0].values.length > 0) {
+        return { lastInsertRowid: res[0].values[0][0] };
+      }
+    } catch (e) {
+      // ignore
+    }
+    return { lastInsertRowid: 0 };
   }
 
   // ========== カード ==========
@@ -79,24 +98,30 @@ class DB {
   }
 
   createCard(data) {
-    const result = this._run(
-      `INSERT INTO cards (name, set_name, rarity, card_number, target_price_min, target_price_max, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    this._run(
+      `INSERT INTO cards (name, set_name, rarity, card_number, target_price_min, target_price_max, include_keywords, exclude_keywords, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [data.name, data.set_name || '', data.rarity || '', data.card_number || '',
-       data.target_price_min || 0, data.target_price_max || 0, data.notes || '']
+       data.target_price_min || 0, data.target_price_max || 0,
+       data.include_keywords || '', data.exclude_keywords || '', data.notes || '']
     );
-    return this.getCard(result.lastInsertRowid);
+    const last = this._get('SELECT * FROM cards ORDER BY id DESC LIMIT 1');
+    return last;
   }
 
   updateCard(id, data) {
+    const existing = this.getCard(id);
+    if (!existing) return null;
+    const merged = { ...existing, ...data };
     this._run(
       `UPDATE cards SET name = ?, set_name = ?, rarity = ?, card_number = ?,
-        target_price_min = ?, target_price_max = ?, notes = ?, is_active = ?,
+        target_price_min = ?, target_price_max = ?, include_keywords = ?, exclude_keywords = ?, notes = ?, is_active = ?,
         updated_at = datetime('now', 'localtime')
        WHERE id = ?`,
-      [data.name, data.set_name || '', data.rarity || '', data.card_number || '',
-       data.target_price_min || 0, data.target_price_max || 0, data.notes || '',
-       data.is_active !== undefined ? data.is_active : 1, id]
+      [merged.name, merged.set_name || '', merged.rarity || '', merged.card_number || '',
+       merged.target_price_min || 0, merged.target_price_max || 0,
+       merged.include_keywords || '', merged.exclude_keywords || '', merged.notes || '',
+       merged.is_active !== undefined ? merged.is_active : 1, id]
     );
     return this.getCard(id);
   }
@@ -122,14 +147,14 @@ class DB {
   }
 
   createShop(data) {
-    const result = this._run(
+    this._run(
       `INSERT INTO shops (name, url, search_url_pattern, provider_type, scrape_enabled, request_interval_ms)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [data.name, data.url, data.search_url_pattern || '',
        data.provider_type || 'link-only', data.scrape_enabled !== undefined ? data.scrape_enabled : 1,
        data.request_interval_ms || 3000]
     );
-    return this.getShop(result.lastInsertRowid);
+    return this._get('SELECT * FROM shops ORDER BY id DESC LIMIT 1');
   }
 
   updateShop(id, data) {
@@ -162,32 +187,20 @@ class DB {
   }
 
   getLatestPrices(cardId) {
-    // 各ショップの最新価格レコードを取得（最新の巡回結果を優先）
-    const priced = this._all(
+    // 各ショップの最新巡回レコード（MAX(id)）を取得
+    return this._all(
       `SELECT pr.*, s.name as shop_name, s.url as shop_url
        FROM price_records pr
        JOIN shops s ON pr.shop_id = s.id
-       WHERE pr.card_id = ? AND pr.price IS NOT NULL AND pr.price > 0
+       WHERE pr.card_id = ?
        AND pr.id IN (
          SELECT MAX(p2.id) FROM price_records p2
-         WHERE p2.card_id = pr.card_id AND p2.shop_id = pr.shop_id
-           AND p2.price IS NOT NULL AND p2.price > 0
+         WHERE p2.card_id = ?
          GROUP BY p2.shop_id
        )
-       ORDER BY pr.price ASC`,
-      [cardId]
+       ORDER BY CASE WHEN pr.price IS NULL THEN 1 ELSE 0 END, pr.price ASC`,
+      [cardId, cardId]
     );
-    // リンクのみ（price=NULL）のレコードも含める
-    const linkOnly = this._all(
-      `SELECT pr.*, s.name as shop_name, s.url as shop_url
-       FROM price_records pr
-       JOIN shops s ON pr.shop_id = s.id
-       WHERE pr.card_id = ? AND pr.price IS NULL
-       AND pr.shop_id NOT IN (SELECT DISTINCT shop_id FROM price_records WHERE card_id = ? AND price IS NOT NULL AND price > 0)
-       AND pr.id IN (SELECT MAX(id) FROM price_records WHERE card_id = ? AND price IS NULL GROUP BY shop_id)`,
-      [cardId, cardId, cardId]
-    );
-    return [...priced, ...linkOnly];
   }
 
   getPriceHistory(cardId, shopId, limit = 50) {
@@ -334,6 +347,36 @@ class DB {
     const obj = {};
     rows.forEach(r => { obj[r.key] = r.value; });
     return obj;
+  }
+
+  // ========== 抽出条件設定 ==========
+  getFilterSettings() {
+    return {
+      exclude_other_tcg: this.getSetting('filter_exclude_other_tcg', 'true') === 'true',
+      exclude_supplies: this.getSetting('filter_exclude_supplies', 'true') === 'true',
+      strict_mode: this.getSetting('filter_strict_mode', 'score'),
+      custom_exclude: this.getSetting('filter_custom_exclude', ''),
+      custom_include: this.getSetting('filter_custom_include', ''),
+    };
+  }
+
+  updateFilterSettings(settings = {}) {
+    if (settings.exclude_other_tcg !== undefined) {
+      this.setSetting('filter_exclude_other_tcg', String(settings.exclude_other_tcg));
+    }
+    if (settings.exclude_supplies !== undefined) {
+      this.setSetting('filter_exclude_supplies', String(settings.exclude_supplies));
+    }
+    if (settings.strict_mode !== undefined) {
+      this.setSetting('filter_strict_mode', String(settings.strict_mode));
+    }
+    if (settings.custom_exclude !== undefined) {
+      this.setSetting('filter_custom_exclude', String(settings.custom_exclude));
+    }
+    if (settings.custom_include !== undefined) {
+      this.setSetting('filter_custom_include', String(settings.custom_include));
+    }
+    return this.getFilterSettings();
   }
 
   // ========== プッシュ通知 ==========
