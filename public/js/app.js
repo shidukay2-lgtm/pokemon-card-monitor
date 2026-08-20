@@ -1,32 +1,45 @@
 // メインアプリケーション
 const App = {
   currentView: 'dashboard',
+  deviceMode: 'auto', // 'auto', 'pc', 'mobile'
   patrolStatus: null,
   statusInterval: null,
 
   async init() {
-    // LocalStorageから状態復元
-    this.restoreState();
-    // サイドバー
-    this.initSidebar();
-    // 巡回ステータス監視
-    await this.updatePatrolStatus();
-    this.statusInterval = setInterval(() => this.updatePatrolStatus(), 10000);
-    // ビュー初期化
-    this.navigate(this.currentView);
-    // Service Worker
-    this.registerSW();
-    // 巡回トグルイベント
-    document.getElementById('patrol-toggle')?.addEventListener('change', () => this.onPatrolToggle());
-    // 間隔変更
-    document.getElementById('patrol-interval-input')?.addEventListener('change', (e) => this.onIntervalChange(e));
-    // ローディング画面を非表示
-    const loader = document.getElementById('app-loader');
-    if (loader) { loader.classList.add('hide'); setTimeout(() => loader.remove(), 500); }
+    try {
+      // LocalStorageから状態復元
+      this.restoreState();
+      // 表示モード初期化（PC/スマホ切替）
+      this.initDeviceMode();
+      // サイドバー & ボトムナビ初期化
+      this.initSidebar();
+      this.initBottomNav();
+      // 巡回ステータス監視
+      await this.updatePatrolStatus();
+      this.statusInterval = setInterval(() => this.updatePatrolStatus(), 10000);
+      // ビュー初期化
+      this.navigate(this.currentView);
+      // Service Worker
+      this.registerSW();
+      // 巡回トグルイベント
+      document.getElementById('patrol-toggle')?.addEventListener('change', () => this.onPatrolToggle());
+      // 間隔変更
+      document.getElementById('patrol-interval-input')?.addEventListener('change', (e) => this.onIntervalChange(e));
+    } catch (e) {
+      console.error('App init error:', e);
+    } finally {
+      // ローディング画面を確実に非表示・削除
+      const loader = document.getElementById('app-loader');
+      if (loader) {
+        loader.classList.add('hide');
+        setTimeout(() => loader.remove(), 400);
+      }
+    }
   },
 
   restoreState() {
     this.currentView = localStorage.getItem('current_view') || 'dashboard';
+    this.deviceMode = localStorage.getItem('device_mode') || 'auto';
     const collapsed = localStorage.getItem('sidebar_collapsed') === 'true';
     if (collapsed && window.innerWidth > 768) {
       document.querySelector('.sidebar')?.classList.add('collapsed');
@@ -35,6 +48,37 @@ const App = {
 
   saveState() {
     localStorage.setItem('current_view', this.currentView);
+    localStorage.setItem('device_mode', this.deviceMode);
+  },
+
+  initDeviceMode() {
+    this.setDeviceMode(this.deviceMode);
+
+    // 切り替えボタンのイベント登録
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.mode;
+        if (mode) this.setDeviceMode(mode);
+      });
+    });
+  },
+
+  setDeviceMode(mode) {
+    this.deviceMode = mode;
+    this.saveState();
+
+    // ボタンのactive表示更新
+    document.querySelectorAll('.mode-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === mode);
+    });
+
+    // bodyのクラス適用
+    document.body.classList.remove('mode-pc', 'mode-mobile');
+    if (mode === 'pc') {
+      document.body.classList.add('mode-pc');
+    } else if (mode === 'mobile') {
+      document.body.classList.add('mode-mobile');
+    }
   },
 
   initSidebar() {
@@ -52,7 +96,7 @@ const App = {
       overlay?.classList.remove('active');
     });
 
-    // ナビゲーションクリック
+    // サイドバーナビゲーションクリック
     document.querySelectorAll('.nav-item').forEach(item => {
       item.addEventListener('click', () => {
         const view = item.dataset.view;
@@ -63,13 +107,27 @@ const App = {
     });
   },
 
+  initBottomNav() {
+    // ボトムナビゲーションクリック
+    document.querySelectorAll('.bottom-nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const view = item.dataset.view;
+        if (view) this.navigate(view);
+      });
+    });
+  },
+
   navigate(view) {
     this.currentView = view;
     this.saveState();
 
-    // ナビ active 更新
+    // サイドバーナビ active 更新
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.querySelector(`.nav-item[data-view="${view}"]`)?.classList.add('active');
+
+    // ボトムナビ active 更新
+    document.querySelectorAll('.bottom-nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelector(`.bottom-nav-item[data-view="${view}"]`)?.classList.add('active');
 
     // ビュー切り替え
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -77,7 +135,13 @@ const App = {
     if (viewEl) viewEl.classList.add('active');
 
     // ヘッダータイトル更新
-    const titles = { dashboard: '📊 ダッシュボード', cards: '🃏 カード管理', shops: '🏪 ショップ管理', alerts: '🔔 アラート設定' };
+    const titles = {
+      dashboard: '📊 ダッシュボード',
+      cards: '🃏 カード管理',
+      shops: '🏪 ショップ管理',
+      alerts: '🔔 アラート設定',
+      'filter-settings': '⚙️ 抽出条件設定'
+    };
     const titleEl = document.getElementById('header-title');
     if (titleEl) titleEl.textContent = titles[view] || '';
 
@@ -87,13 +151,30 @@ const App = {
       case 'cards': Cards.init(); break;
       case 'shops': Shops.init(); break;
       case 'alerts': Alerts.init(); break;
+      case 'filter-settings': FilterSettings.init(); break;
     }
   },
 
   async updatePatrolStatus() {
     try {
+      const prevStatus = this.patrolStatus;
       this.patrolStatus = await API.getPatrolStatus();
       this.renderPatrolStatus();
+
+      // 巡回完了検知（lastRunが更新された、または 巡回中→待機中 に変化した場合）
+      const lastRunChanged = prevStatus && this.patrolStatus.lastRun && prevStatus.lastRun !== this.patrolStatus.lastRun;
+      const statusChangedFromRunning = prevStatus?.progress?.status === '巡回中' && this.patrolStatus?.progress?.status === '待機中';
+
+      if (lastRunChanged || statusChangedFromRunning) {
+        if (this.currentView === 'dashboard' && typeof Dashboard !== 'undefined' && Dashboard.refresh) {
+          Dashboard.refresh();
+        }
+      }
+
+      // 巡回中の進捗バナー更新
+      if (this.currentView === 'dashboard' && typeof Dashboard !== 'undefined' && Dashboard.updateProgressDisplay) {
+        Dashboard.updateProgressDisplay();
+      }
     } catch (e) { /* silent */ }
   },
 
@@ -117,6 +198,16 @@ const App = {
       const st = statusMap[s.progress?.status] || statusMap['停止中'];
       statusEl.className = `patrol-status ${st.class}`;
       statusEl.textContent = st.text;
+    }
+
+    // ダッシュボード統計カードの直接更新
+    const lastPatrolEl = document.getElementById('stat-last-patrol');
+    if (lastPatrolEl) {
+      lastPatrolEl.textContent = s.lastRun ? Components.formatDate(s.lastRun) : '未実行';
+    }
+    const nextPatrolEl = document.getElementById('stat-next-patrol');
+    if (nextPatrolEl) {
+      nextPatrolEl.textContent = s.isEnabled && s.nextRun ? Components.formatDate(s.nextRun) : '-';
     }
   },
 
