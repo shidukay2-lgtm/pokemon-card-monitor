@@ -26,7 +26,10 @@ const Shops = {
           <button class="btn btn-sm btn-primary" onclick="Shops.showAddModal()">＋ ショップ追加</button>
         </div>
         <div class="panel-body" style="padding:0">
-          <div class="table-wrapper">${this.renderTable()}</div>
+          <!-- PC用テーブル -->
+          <div class="pc-view-only table-wrapper">${this.renderTable()}</div>
+          <!-- スマホ用カードリスト -->
+          <div class="mobile-view-only" style="padding:10px">${this.renderMobileShops()}</div>
         </div>
       </div>
     `;
@@ -55,6 +58,43 @@ const Shops = {
       </tr>`;
     });
     html += '</tbody></table>';
+    return html;
+  },
+
+  renderMobileShops() {
+    if (this.shops.length === 0) {
+      return '<div class="empty-state"><div class="icon">🏪</div><p>ショップが登録されていません</p></div>';
+    }
+
+    let html = '<div class="mobile-card-grid">';
+    this.shops.forEach(s => {
+      html += `
+        <div class="mobile-card-card">
+          <div class="mobile-card-top">
+            <div>
+              <div class="mobile-card-title">${s.name}</div>
+              <div class="mobile-card-meta">
+                <a href="${s.url}" target="_blank" rel="noopener">${s.url.replace(/https?:\/\//, '').slice(0, 35)}... ↗</a>
+              </div>
+            </div>
+            <div style="display:flex;gap:4px">
+              ${Components.providerBadge(s.provider_type)}
+              ${s.is_active ? '<span class="badge badge-success">有効</span>' : '<span class="badge badge-muted">無効</span>'}
+            </div>
+          </div>
+          
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:0.8rem;color:var(--text-secondary)">
+            <span>巡回スクレイピング: ${s.scrape_enabled ? '<strong style="color:var(--success)">ON</strong>' : '<strong style="color:var(--text-muted)">OFF</strong>'}</span>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-sm btn-secondary" onclick="Shops.showEditModal(${s.id})">✏️ 編集</button>
+              <button class="btn btn-sm btn-secondary" onclick="Shops.toggleActive(${s.id}, ${s.is_active})">${s.is_active ? '⏸' : '▶'}</button>
+              <button class="btn btn-sm btn-danger" onclick="Shops.remove(${s.id})">🗑</button>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    html += '</div>';
     return html;
   },
 
