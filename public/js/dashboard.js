@@ -15,6 +15,14 @@ const Dashboard = {
 
     try {
       this.data = await API.getPrices();
+      // DBから取得した最新のAI診断結果を復元
+      if (this.data?.cards) {
+        this.data.cards.forEach(c => {
+          if (c.aiAnalysis && (!this.analyses[c.id] || !this.analyses[c.id].rating)) {
+            this.analyses[c.id] = c.aiAnalysis;
+          }
+        });
+      }
       this.render();
     } catch (e) {
       Components.empty(container, '⚠️', 'データの読み込みに失敗しました');
