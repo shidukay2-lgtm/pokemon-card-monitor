@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS cards (
   card_number TEXT DEFAULT '',
   target_price_min INTEGER DEFAULT 0,
   target_price_max INTEGER DEFAULT 0,
+  include_keywords TEXT DEFAULT '',
+  exclude_keywords TEXT DEFAULT '',
   notes TEXT DEFAULT '',
   is_active INTEGER DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now', 'localtime')),
@@ -105,12 +107,17 @@ INSERT OR IGNORE INTO settings (key, value) VALUES ('patrol_enabled', 'true');
 INSERT OR IGNORE INTO settings (key, value) VALUES ('patrol_interval', '30');
 INSERT OR IGNORE INTO settings (key, value) VALUES ('notification_method', 'browser');
 INSERT OR IGNORE INTO settings (key, value) VALUES ('notification_email', '');
+INSERT OR IGNORE INTO settings (key, value) VALUES ('filter_exclude_other_tcg', 'true');
+INSERT OR IGNORE INTO settings (key, value) VALUES ('filter_exclude_supplies', 'true');
+INSERT OR IGNORE INTO settings (key, value) VALUES ('filter_strict_mode', 'score');
+INSERT OR IGNORE INTO settings (key, value) VALUES ('filter_custom_exclude', '');
+INSERT OR IGNORE INTO settings (key, value) VALUES ('filter_custom_include', '');
 
 -- デフォルトショップ登録
 INSERT OR IGNORE INTO shops (id, name, url, search_url_pattern, provider_type) VALUES
   (1, '楽天市場', 'https://www.rakuten.co.jp/', 'https://search.rakuten.co.jp/search/mall/{keyword}/', 'rakuten-api'),
   (2, 'Yahoo!ショッピング', 'https://shopping.yahoo.co.jp/', 'https://shopping.yahoo.co.jp/search?p={keyword}', 'yahoo-api'),
-  (3, '駿河屋', 'https://www.suruga-ya.jp/', 'https://www.suruga-ya.jp/search?category=&search_word={keyword}', 'surugaya-scraper'),
+  (3, '駿河屋', 'https://www.suruga-ya.jp/', 'https://www.suruga-ya.jp/search?category=50101&search_word={keyword}', 'surugaya-scraper'),
   (4, '遊々亭', 'https://yuyu-tei.jp/', 'https://yuyu-tei.jp/sell/poc/s/{keyword}', 'yuyutei-scraper'),
   (5, 'カードラッシュ', 'https://www.cardrush-pokemon.jp/', 'https://www.cardrush-pokemon.jp/?mode=srh&keyword={keyword}', 'link-only'),
   (6, 'メルカリ', 'https://jp.mercari.com/', 'https://jp.mercari.com/search?keyword={keyword}', 'link-only'),
