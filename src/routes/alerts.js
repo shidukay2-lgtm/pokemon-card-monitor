@@ -68,7 +68,8 @@ router.post('/subscribe', async (req, res) => {
 router.get('/vapid-key', async (req, res) => {
   try {
     const notifier = await getNotifier();
-    res.json({ success: true, data: { publicKey: notifier.getVapidPublicKey() } });
+    const key = await notifier.getVapidPublicKeyAsync();
+    res.json({ success: true, data: { publicKey: key } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
