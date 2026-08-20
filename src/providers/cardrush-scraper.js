@@ -7,35 +7,36 @@ class CardRushScraper extends BaseProvider {
     const url = this.getSearchUrl(keyword);
     this.logger.info(`検索: ${keyword}`);
 
-    const html = await throttledRequest(url, (u) => this.fetchHtml(u), {
-      intervalMs: this.shop.request_interval_ms || 3000,
-    });
+    let html;
+    try {
+      html = await throttledRequest(url, (u) => this.fetchHtml(u), {
+        intervalMs: this.shop.request_interval_ms || 3000,
+      });
+    } catch (e) {
+      this.logger.warn(`アクセスブロック(${e.message}) - 検索リンクで代替`);
+      return [this.createResult({ name: keyword, price: null, stockStatus: 'unknown', productUrl: url })];
+    }
 
-    if (!html) return [];
+    if (!html) return [this.createResult({ name: keyword, price: null, stockStatus: 'unknown', productUrl: url })];
 
     try {
       const $ = cheerio.load(html);
       const results = [];
 
-      // カードラッシュのHTML構造:
-      // 検索結果: div.ajax_list_box > div.ajax_itemlist_box > ul.item_list > li.list_item_cell
-      //   各liの中: div.item_data > a.item_data_link > div.global_photo.itemph_item_group_XXXXX
-      // 新着/おすすめは itemph_newitem / itemph_recommend を持つ → 除外
-      
-      // 検索結果セクション(ajax_list_box)内のlist_item_cellを取得
-      $('.ajax_list_box li.list_item_cell, .ajax_list_box .list_item_cell').each((_, el) => {
+      // 検索結果セクション内の商品リストのみを厳密に抽出
+      $('.ajax_list_box li.list_item_cell, .item_list li.list_item_cell').each((_, el) => {
         const $el = $(el);
 
-        // itemph_newitem or itemph_recommend が含まれていたらスキップ
+        // 新着・おすすめ・SALE品ブロックを除外
         const elHtml = $el.html() || '';
-        if (elHtml.includes('itemph_newitem') || elHtml.includes('itemph_recommend')) return;
+        if (elHtml.includes('itemph_newitem') || elHtml.includes('itemph_recommend') || elHtml.includes('itemph_sale')) return;
 
         // 商品名（goods_name、またはalt属性から）
         let name = $el.find('.goods_name').first().text().trim();
         if (!name) {
           name = $el.find('img[alt]').first().attr('alt') || '';
         }
-        if (!name) return;
+        if (!name || name.includes('☆SALE☆')) return;
 
         // 価格
         const priceText = $el.find('.selling_price .figure, .price .figure').first().text().trim();
@@ -57,10 +58,13 @@ class CardRushScraper extends BaseProvider {
       });
 
       this.logger.info(`${results.length}件の結果を取得`);
+      if (results.length === 0) {
+        return [this.createResult({ name: keyword, price: null, stockStatus: 'unknown', productUrl: url })];
+      }
       return results.slice(0, 30);
     } catch (error) {
       this.logger.error(`HTML解析エラー: ${error.message}`);
-      return [];
+      return [this.createResult({ name: keyword, price: null, stockStatus: 'unknown', productUrl: url })];
     }
   }
 }
