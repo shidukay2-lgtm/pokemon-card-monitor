@@ -62,10 +62,10 @@ const Dashboard = {
       <div class="panel">
         <div class="panel-header">
           <span class="panel-title">📊 価格比較</span>
-          <div style="display:flex;gap:6px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn btn-sm btn-secondary" onclick="Dashboard.refresh()">🔄 更新</button>
             <button class="btn btn-sm btn-primary" id="btn-patrol-now" onclick="Dashboard.patrol()">▶ 手動巡回</button>
-            <button class="btn btn-sm btn-secondary" onclick="Dashboard.analyzeAll()">🤖 AI診断</button>
+            <button class="btn btn-sm btn-secondary" id="btn-ai-analyze-all" onclick="Dashboard.analyzeAll()">🤖 AI一括診断</button>
           </div>
         </div>
         <div class="panel-body" style="padding:0">
@@ -119,7 +119,7 @@ const Dashboard = {
 
     let bodyHtml = '';
     cards.forEach(card => {
-      const analysis = this.analyses[card.id] || {};
+      const analysis = this.analyses[card.id] || null;
       const minPrice = card.minPrice;
       const minPriceShop = card.minPriceShop;
       const hasTargetMax = card.target_price_max > 0;
@@ -185,7 +185,13 @@ const Dashboard = {
         }
       });
 
-      bodyHtml += `<td>${Components.aiRating(analysis)}</td>`;
+      // AI診断列（クリックで詳細モーダル）
+      if (analysis && analysis.rating > 0) {
+        bodyHtml += `<td><div style="cursor:pointer" onclick="Dashboard.showAiDetail(${card.id})" title="クリックでAI診断の詳細を表示">${Components.aiRating(analysis)}<br><small style="color:var(--text-muted);font-size:0.7rem">${analysis.comment || ''}</small></div></td>`;
+      } else {
+        bodyHtml += `<td><button class="btn btn-sm btn-secondary" onclick="Dashboard.analyzeCard(${card.id})" style="font-size:0.75rem;padding:3px 6px">🤖 診断</button></td>`;
+      }
+
       bodyHtml += '</tr>';
     });
 
@@ -201,6 +207,7 @@ const Dashboard = {
     let html = '<div class="mobile-card-grid">';
 
     cards.forEach(card => {
+      const analysis = this.analyses[card.id] || null;
       const minPrice = card.minPrice;
       const minPriceShop = card.minPriceShop;
       const hasTargetMax = card.target_price_max > 0;
@@ -230,6 +237,36 @@ const Dashboard = {
         card.set_name || '',
         card.card_number ? `(${card.card_number})` : ''
       ].filter(Boolean).join(' ');
+
+      // AI診断セクション（スマホ用）
+      let aiSectionHtml = '';
+      if (analysis && analysis.rating > 0) {
+        const stars = '★'.repeat(analysis.rating) + '☆'.repeat(5 - analysis.rating);
+        const verdictLabels = { cheap: '割安・買い時', fair: '適正価格', expensive: '割高', unknown: '-' };
+        const verdictBadgeClass = analysis.verdict === 'cheap' ? 'badge-success' : (analysis.verdict === 'expensive' ? 'badge-danger' : 'badge-info');
+
+        aiSectionHtml = `
+          <div class="mobile-ai-box" onclick="Dashboard.showAiDetail(${card.id})" title="タップしてAI診断の詳細を確認">
+            <div class="mobile-ai-header">
+              <div class="mobile-ai-title">🤖 AI相場診断</div>
+              <span class="badge ${verdictBadgeClass}">${verdictLabels[analysis.verdict] || '診断済'}</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px">
+              <span style="color:#f59e0b;font-size:0.9rem;letter-spacing:1px">${stars}</span>
+              <span style="font-size:0.75rem;color:var(--accent-hover)">詳細を見る ↗</span>
+            </div>
+            <div class="mobile-ai-comment">💡 ${analysis.comment || '相場データを分析しました'}</div>
+          </div>
+        `;
+      } else {
+        aiSectionHtml = `
+          <div style="margin-top:10px;text-align:center">
+            <button class="btn btn-sm btn-secondary" onclick="Dashboard.analyzeCard(${card.id})" style="width:100%;font-size:0.75rem;padding:6px;border-style:dashed">
+              🤖 このカードのAI相場診断を実行
+            </button>
+          </div>
+        `;
+      }
 
       html += `
         <div class="mobile-card-card" data-card-name="${card.name}" data-rarity="${card.rarity || ''}" data-target-status="${targetStatusKey}">
@@ -280,6 +317,7 @@ const Dashboard = {
 
       html += `
           </div>
+          ${aiSectionHtml}
         </div>
       `;
     });
@@ -332,7 +370,6 @@ const Dashboard = {
     if (btn) { btn.disabled = true; btn.textContent = '⏳ 巡回中...'; }
     Components.showToast('巡回を開始しました', 'info');
 
-    // 進捗監視用のタイマー開始（2秒ごとにステータス取得）
     const progressTimer = setInterval(async () => {
       await App.updatePatrolStatus();
       this.updateProgressDisplay();
@@ -340,9 +377,7 @@ const Dashboard = {
 
     try {
       await API.runPatrol();
-      // 巡回完了直後に最新ステータスを確実に取得
       await App.updatePatrolStatus();
-      // ダッシュボードの価格データと最終巡回日時を最新データでリフレッシュ
       await this.refresh();
       Components.showToast('巡回が完了しました ✓', 'success');
     } catch (e) {
@@ -371,7 +406,7 @@ const Dashboard = {
           <span>${pct}%</span>
         </div>
         <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
-          <div style="height:100%;background:var(--color-primary);width:${pct}%;transition:width 0.3s"></div>
+          <div style="height:100%;background:var(--accent);width:${pct}%;transition:width 0.3s"></div>
         </div>
       `;
     } else {
@@ -379,17 +414,85 @@ const Dashboard = {
     }
   },
 
+  // カード単体のAI診断
+  async analyzeCard(cardId) {
+    Components.showToast('🤖 AI診断を実行中...', 'info');
+    try {
+      const result = await API.analyzeCard(cardId);
+      if (result) {
+        this.analyses[cardId] = result;
+        this.render();
+        Components.showToast('AI診断が完了しました ✓', 'success');
+      }
+    } catch (e) {
+      Components.showToast(`AI診断エラー: ${e.message}`, 'error');
+    }
+  },
+
+  // 全カードのAI一括診断
   async analyzeAll() {
     if (!this.data?.cards?.length) return;
-    Components.showToast('AI診断を開始しています...', 'info');
+    const btn = document.getElementById('btn-ai-analyze-all');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ AI診断中...'; }
+    Components.showToast('🤖 全カードのAI診断を開始しました...', 'info');
+
     try {
       const ids = this.data.cards.map(c => c.id);
       const results = await API.analyzeBatch(ids);
       this.analyses = results || {};
       this.render();
-      Components.showToast('AI診断が完了しました', 'success');
+      Components.showToast('AI一括診断が完了しました ✓', 'success');
     } catch (e) {
-      // error shown
+      Components.showToast(`AI診断エラー: ${e.message}`, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '🤖 AI一括診断'; }
     }
   },
+
+  // AI診断詳細モーダル
+  showAiDetail(cardId) {
+    const card = this.data?.cards?.find(c => c.id === cardId);
+    const analysis = this.analyses[cardId];
+    if (!card || !analysis) return;
+
+    const stars = '★'.repeat(analysis.rating || 0) + '☆'.repeat(5 - (analysis.rating || 0));
+    const verdictLabels = { cheap: '🎯 割安・買い時', fair: '⚖️ 適正価格', expensive: '⚠️ 割高・様子見', unknown: 'データ不足' };
+    const trendLabels = { up: '📈 上昇傾向', stable: '➡️ 横ばい・安定', down: '📉 下落傾向' };
+
+    const modalHtml = `
+      <div style="font-size:0.95rem">
+        <div style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+          <strong style="font-size:1.1rem;color:var(--text-primary)">${card.name}</strong>
+          ${card.rarity ? ` <span class="badge badge-primary">${card.rarity}</span>` : ''}
+          <div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px">${card.set_name || ''} ${card.card_number ? `(${card.card_number})` : ''}</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:10px;margin-bottom:12px">
+          <div style="background:var(--bg-tertiary);padding:10px;border-radius:8px">
+            <div style="font-size:0.75rem;color:var(--text-muted)">割安度スコア</div>
+            <div style="font-size:1.2rem;color:#f59e0b;font-weight:bold">${stars}</div>
+          </div>
+          <div style="background:var(--bg-tertiary);padding:10px;border-radius:8px">
+            <div style="font-size:0.75rem;color:var(--text-muted)">相場判定</div>
+            <div style="font-size:1rem;font-weight:bold;color:var(--text-primary)">${verdictLabels[analysis.verdict] || '-'}</div>
+          </div>
+        </div>
+
+        <div style="background:linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(34,197,94,0.1) 100%);padding:12px;border-radius:8px;border:1px solid rgba(99,102,241,0.2);margin-bottom:12px">
+          <div style="font-size:0.8rem;font-weight:bold;color:var(--accent-hover);margin-bottom:4px">💡 AI相場コメント & アドバイス</div>
+          <div style="font-size:0.85rem;line-height:1.5;color:var(--text-primary)">${analysis.comment || '相場データを分析しました。'}</div>
+        </div>
+
+        <div style="font-size:0.8rem;color:var(--text-secondary)">
+          <div>・ 相場トレンド: <strong>${trendLabels[analysis.trend] || '横ばい'}</strong></div>
+          ${analysis.stats ? `<div>・ 最安値: <strong>¥${analysis.stats.min?.toLocaleString()}</strong> / 平均: <strong>¥${analysis.stats.avg?.toLocaleString()}</strong> (対象: ${analysis.stats.count}店舗)</div>` : ''}
+          <div>・ 分析ソース: <strong>${analysis.source === 'ai' ? 'Gemini AIモデル' : 'リアルタイム相場統計エンジン'}</strong></div>
+        </div>
+      </div>
+    `;
+
+    Components.showModal('🤖 AI相場診断 詳細', modalHtml, [
+      { text: '閉じる', class: 'btn-secondary', onclick: () => Components.closeModal() }
+    ]);
+  }
 };
