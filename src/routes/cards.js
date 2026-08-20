@@ -15,6 +15,18 @@ router.get('/', async (req, res) => {
   }
 });
 
+// 単体カード取得
+router.get('/:id(\\d+)', async (req, res) => {
+  try {
+    const db = await getDB();
+    const card = db.getCard(parseInt(req.params.id));
+    if (!card) return res.status(404).json({ success: false, message: 'カードが見つかりません' });
+    res.json({ success: true, data: card });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // 公式カード情報検索
 router.post('/lookup', async (req, res) => {
   try {
