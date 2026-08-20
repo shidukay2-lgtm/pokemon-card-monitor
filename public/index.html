@@ -49,6 +49,9 @@
         <button class="nav-item" data-view="alerts" id="nav-alerts">
           <span class="icon">🔔</span> アラート設定
         </button>
+        <button class="nav-item" data-view="filter-settings" id="nav-filter-settings">
+          <span class="icon">⚙️</span> 抽出条件設定
+        </button>
       </div>
       <div style="padding:12px;border-top:1px solid var(--border);font-size:.75rem;color:var(--text-muted)">
         v1.0.0 | 機能重視設計
@@ -62,6 +65,13 @@
         <button class="menu-toggle" id="menu-toggle">☰</button>
         <span class="header-title" id="header-title">📊 ダッシュボード</span>
         <div class="header-spacer"></div>
+
+        <!-- 表示モード切り替えスイッチ -->
+        <div class="device-mode-switch" id="device-mode-switch">
+          <button class="mode-btn active" data-mode="auto" title="自動判定（画面サイズに応じて切替）">⚙️ 自動</button>
+          <button class="mode-btn" data-mode="pc" title="PC表示モード">💻 PC</button>
+          <button class="mode-btn" data-mode="mobile" title="スマホ表示モード">📱 スマホ</button>
+        </div>
 
         <!-- 巡回コントロール -->
         <div class="patrol-control">
@@ -92,9 +102,36 @@
         <div id="view-alerts" class="view">
           <div class="loading-overlay"><span class="spinner"></span> 読み込み中...</div>
         </div>
+        <div id="view-filter-settings" class="view">
+          <div class="loading-overlay"><span class="spinner"></span> 読み込み中...</div>
+        </div>
       </main>
     </div>
   </div>
+
+  <!-- スマホ用ボトムナビゲーションバー -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <button class="bottom-nav-item active" data-view="dashboard">
+      <span class="bottom-icon">📊</span>
+      <span class="bottom-label">価格比較</span>
+    </button>
+    <button class="bottom-nav-item" data-view="cards">
+      <span class="bottom-icon">🃏</span>
+      <span class="bottom-label">カード</span>
+    </button>
+    <button class="bottom-nav-item" data-view="shops">
+      <span class="bottom-icon">🏪</span>
+      <span class="bottom-label">ショップ</span>
+    </button>
+    <button class="bottom-nav-item" data-view="alerts">
+      <span class="bottom-icon">🔔</span>
+      <span class="bottom-label">アラート</span>
+    </button>
+    <button class="bottom-nav-item" data-view="filter-settings">
+      <span class="bottom-icon">⚙️</span>
+      <span class="bottom-label">抽出設定</span>
+    </button>
+  </nav>
 
   <!-- Scripts (defer) -->
   <script src="/js/api.js" defer></script>
@@ -103,6 +140,7 @@
   <script src="/js/cards.js" defer></script>
   <script src="/js/shops.js" defer></script>
   <script src="/js/alerts.js" defer></script>
+  <script src="/js/filter-settings.js" defer></script>
   <script src="/js/app.js" defer></script>
 </body>
 </html>
