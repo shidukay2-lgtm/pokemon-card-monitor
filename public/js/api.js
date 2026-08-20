@@ -22,6 +22,8 @@ const API = {
   createCard: (data) => API._request('POST', '/api/cards', data),
   updateCard: (id, data) => API._request('PUT', `/api/cards/${id}`, data),
   deleteCard: (id) => API._request('DELETE', `/api/cards/${id}`),
+  lookupOfficialCard: (name, rarity) => API._request('POST', '/api/cards/lookup', { name, rarity }),
+  autofillAllCards: () => API._request('POST', '/api/cards/autofill-all'),
 
   // ショップ
   getShops: () => API._request('GET', '/api/shops'),
@@ -52,6 +54,11 @@ const API = {
   analyzeCard: (id) => API._request('POST', `/api/ai/analyze/${id}`),
   analyzeBatch: (ids) => API._request('POST', '/api/ai/analyze-batch', { cardIds: ids }),
   getAnalysis: (id) => API._request('GET', `/api/ai/analysis/${id}`),
+
+  // 抽出条件設定
+  getFilterSettings: () => API._request('GET', '/api/filter-settings'),
+  updateFilterSettings: (data) => API._request('PUT', '/api/filter-settings', data),
+  testFilter: (data) => API._request('POST', '/api/filter-settings/test', data),
 
   // 設定
   getSettings: () => API._request('GET', '/api/settings'),
