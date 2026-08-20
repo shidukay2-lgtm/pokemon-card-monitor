@@ -80,6 +80,7 @@ class PriceTracker {
     const cards = db.getActiveCards();
     const shops = db.getAllShops();
     const activeShops = shops.filter(s => s.is_active);
+    const aiAnalyses = db.getAllLatestAiAnalyses ? db.getAllLatestAiAnalyses() : {};
 
     const resultCards = cards.map(card => {
       const shopPrices = {};
@@ -113,7 +114,9 @@ class PriceTracker {
         }
       }
 
-      return { ...card, shopPrices, minPrice, minPriceShop };
+      const aiAnalysis = aiAnalyses[card.id] || null;
+
+      return { ...card, shopPrices, minPrice, minPriceShop, aiAnalysis };
     });
 
     return {
