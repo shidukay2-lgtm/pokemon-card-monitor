@@ -1,11 +1,27 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../models/db');
+const { getShopDetector } = require('../services/shop-detector');
 
 router.get('/', async (req, res) => {
   try {
     const db = await getDB();
     res.json({ success: true, data: db.getAllShops() });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ショップ名またはURLから自動検出
+router.post('/lookup', async (req, res) => {
+  try {
+    const { query } = req.body;
+    if (!query || !query.trim()) {
+      return res.status(400).json({ success: false, message: 'ショップ名またはURLを入力してください' });
+    }
+    const detector = getShopDetector();
+    const info = await detector.detectShopInfo(query.trim());
+    res.json({ success: true, data: info });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
