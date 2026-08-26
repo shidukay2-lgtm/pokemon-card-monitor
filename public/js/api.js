@@ -30,6 +30,7 @@ const API = {
   createShop: (data) => API._request('POST', '/api/shops', data),
   updateShop: (id, data) => API._request('PUT', `/api/shops/${id}`, data),
   deleteShop: (id) => API._request('DELETE', `/api/shops/${id}`),
+  lookupShop: (query) => API._request('POST', '/api/shops/lookup', { query }),
 
   // 監視
   getPrices: () => API._request('GET', '/api/monitor/prices'),
