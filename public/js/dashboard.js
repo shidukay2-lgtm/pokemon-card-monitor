@@ -464,37 +464,77 @@ const Dashboard = {
     if (!card || !analysis) return;
 
     const stars = '★'.repeat(analysis.rating || 0) + '☆'.repeat(5 - (analysis.rating || 0));
-    const verdictLabels = { cheap: '🎯 割安・買い時', fair: '⚖️ 適正価格', expensive: '⚠️ 割高・様子見', unknown: 'データ不足' };
+    const verdictLabels = {
+      super_cheap: '🔥 爆アド・即買い推奨',
+      cheap: '🎯 割安・買い時',
+      fair: '⚖️ 適正相場',
+      expensive: '⚠️ 割高・様子見',
+      suspicious_cheap: '🚨 異常安値・状態注意',
+      unknown: 'データ不足'
+    };
     const trendLabels = { up: '📈 上昇傾向', stable: '➡️ 横ばい・安定', down: '📉 下落傾向' };
+
+    const reasoning = analysis.reasoning || {};
+    const buybackPriceStr = reasoning.buybackPrice ? `¥${reasoning.buybackPrice.toLocaleString()}` : '取得中';
+    const fairPriceStr = reasoning.fairMarketPrice ? `¥${reasoning.fairMarketPrice.toLocaleString()}` : '-';
+    const buybackSourceStr = reasoning.buybackSource || '大手買取サイト・専門店推計';
+    const buybackRatioStr = reasoning.buybackRatio ? `${reasoning.buybackRatio}` : '-';
+
+    const minPriceVal = analysis.stats?.min;
+    const minPriceStr = minPriceVal ? `¥${minPriceVal.toLocaleString()}` : '-';
 
     const modalHtml = `
       <div style="font-size:0.95rem">
         <div style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">
-          <strong style="font-size:1.1rem;color:var(--text-primary)">${card.name}</strong>
+          <strong style="font-size:1.15rem;color:var(--text-primary)">${card.name}</strong>
           ${card.rarity ? ` <span class="badge badge-primary">${card.rarity}</span>` : ''}
           <div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px">${card.set_name || ''} ${card.card_number ? `(${card.card_number})` : ''}</div>
         </div>
 
+        <!-- スコア＆判定バナー -->
         <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:10px;margin-bottom:12px">
-          <div style="background:var(--bg-tertiary);padding:10px;border-radius:8px">
-            <div style="font-size:0.75rem;color:var(--text-muted)">割安度スコア</div>
-            <div style="font-size:1.2rem;color:#f59e0b;font-weight:bold">${stars}</div>
+          <div style="background:var(--bg-tertiary);padding:10px 14px;border-radius:8px">
+            <div style="font-size:0.75rem;color:var(--text-muted)">割安度スコア（厳格基準）</div>
+            <div style="font-size:1.25rem;color:#f59e0b;font-weight:bold;letter-spacing:1px">${stars}</div>
           </div>
-          <div style="background:var(--bg-tertiary);padding:10px;border-radius:8px">
-            <div style="font-size:0.75rem;color:var(--text-muted)">相場判定</div>
-            <div style="font-size:1rem;font-weight:bold;color:var(--text-primary)">${verdictLabels[analysis.verdict] || '-'}</div>
+          <div style="background:var(--bg-tertiary);padding:10px 14px;border-radius:8px">
+            <div style="font-size:0.75rem;color:var(--text-muted)">総合相場判定</div>
+            <div style="font-size:1rem;font-weight:bold;color:var(--text-primary)">${verdictLabels[analysis.verdict] || analysis.verdict}</div>
           </div>
         </div>
 
-        <div style="background:linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(34,197,94,0.1) 100%);padding:12px;border-radius:8px;border:1px solid rgba(99,102,241,0.2);margin-bottom:12px">
-          <div style="font-size:0.8rem;font-weight:bold;color:var(--accent-hover);margin-bottom:4px">💡 AI相場コメント & アドバイス</div>
-          <div style="font-size:0.85rem;line-height:1.5;color:var(--text-primary)">${analysis.comment || '相場データを分析しました。'}</div>
+        <!-- 外部買取相場 vs 販売最安値 比較テーブル -->
+        <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+          <div style="font-size:0.8rem;font-weight:bold;color:var(--accent-hover);margin-bottom:8px">📊 多角相場データ比較</div>
+          <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;text-align:center">
+            <div style="background:var(--bg-tertiary);padding:8px 6px;border-radius:6px">
+              <div style="font-size:0.7rem;color:var(--text-muted)">外部買取相場</div>
+              <div style="font-size:1rem;font-weight:bold;color:var(--accent-hover);margin-top:2px">${buybackPriceStr}</div>
+              <div style="font-size:0.65rem;color:var(--text-muted)">${buybackSourceStr}</div>
+            </div>
+            <div style="background:var(--bg-tertiary);padding:8px 6px;border-radius:6px">
+              <div style="font-size:0.7rem;color:var(--text-muted)">監視ショップ最安</div>
+              <div style="font-size:1rem;font-weight:bold;color:var(--success);margin-top:2px">${minPriceStr}</div>
+              <div style="font-size:0.65rem;color:var(--text-muted)">${analysis.stats?.minShop || '-'}</div>
+            </div>
+            <div style="background:var(--bg-tertiary);padding:8px 6px;border-radius:6px">
+              <div style="font-size:0.7rem;color:var(--text-muted)">市場適正目安</div>
+              <div style="font-size:1rem;font-weight:bold;color:var(--text-primary);margin-top:2px">${fairPriceStr}</div>
+              <div style="font-size:0.65rem;color:var(--text-muted)">専門店相場中央値</div>
+            </div>
+          </div>
+          ${reasoning.buybackRatio ? `<div style="font-size:0.75rem;color:var(--text-secondary);margin-top:8px;text-align:right">買取価格比率: <strong>${buybackRatioStr}</strong>（最安値 ÷ 買取相場）</div>` : ''}
         </div>
 
-        <div style="font-size:0.8rem;color:var(--text-secondary)">
-          <div>・ 相場トレンド: <strong>${trendLabels[analysis.trend] || '横ばい'}</strong></div>
-          ${analysis.stats ? `<div>・ 最安値: <strong>¥${analysis.stats.min?.toLocaleString()}</strong> / 平均: <strong>¥${analysis.stats.avg?.toLocaleString()}</strong> (対象: ${analysis.stats.count}店舗)</div>` : ''}
-          <div>・ 分析ソース: <strong>${analysis.source === 'ai' ? 'Gemini AIモデル' : 'リアルタイム相場統計エンジン'}</strong></div>
+        <!-- AI推論コメント＆アドバイス -->
+        <div style="background:linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(34,197,94,0.1) 100%);padding:12px;border-radius:8px;border:1px solid rgba(99,102,241,0.25);margin-bottom:12px">
+          <div style="font-size:0.8rem;font-weight:bold;color:var(--accent-hover);margin-bottom:4px">💡 AI相場鑑定士の推論根拠</div>
+          <div style="font-size:0.85rem;line-height:1.5;color:var(--text-primary);font-weight:500">${analysis.comment || '相場データを分析しました。'}</div>
+        </div>
+
+        <div style="font-size:0.75rem;color:var(--text-muted);display:flex;justify-content:space-between">
+          <span>相場トレンド: <strong>${trendLabels[analysis.trend] || '横ばい'}</strong></span>
+          <span>分析方式: <strong>多角買取相場照合</strong></span>
         </div>
       </div>
     `;
