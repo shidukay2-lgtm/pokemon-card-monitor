@@ -99,25 +99,50 @@ const Shops = {
   },
 
   getFormHtml(shop = {}) {
+    const isEdit = !!shop.id;
     return `
+      <!-- 自動検索・補完セクション -->
+      <div style="background:linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(34,197,94,0.08) 100%);border:1px solid rgba(99,102,241,0.3);border-radius:8px;padding:12px;margin-bottom:16px">
+        <label class="form-label" style="color:var(--accent-hover);font-weight:bold;margin-bottom:4px">
+          🔍 ショップ名またはURLから自動入力
+        </label>
+        <div style="display:flex;gap:8px">
+          <input type="text" class="form-input" id="shop-lookup-input" placeholder="例: 晴れる屋2、トレトク、ドラゴンスター、または https://..." onkeydown="if(event.key==='Enter'){event.preventDefault();Shops.autoDetectShop();}">
+          <button type="button" class="btn btn-primary" id="btn-detect-shop" onclick="Shops.autoDetectShop()" style="white-space:nowrap;padding:8px 14px">
+            🔍 自動取得
+          </button>
+        </div>
+        <div id="shop-detect-status" style="font-size:0.75rem;margin-top:6px;color:var(--text-muted)">
+          💡 ショップ名（晴れる屋2、カードラボ等）や通販URLを入れると、検索URLと推奨取得方式を自動入力します
+        </div>
+      </div>
+
       <div class="form-group">
         <label class="form-label">ショップ名 *</label>
-        <input type="text" class="form-input" id="shop-name" value="${shop.name || ''}" placeholder="例: カードショップXX">
+        <input type="text" class="form-input" id="shop-name" value="${shop.name || ''}" placeholder="例: 晴れる屋2">
       </div>
       <div class="form-group">
-        <label class="form-label">URL *</label>
-        <input type="url" class="form-input" id="shop-url" value="${shop.url || ''}" placeholder="https://example.com">
+        <label class="form-label">ベースURL *</label>
+        <input type="url" class="form-input" id="shop-url" value="${shop.url || ''}" placeholder="https://www.hareruya2.com">
       </div>
       <div class="form-group">
-        <label class="form-label">検索URLパターン</label>
-        <input type="text" class="form-input" id="shop-search-pattern" value="${shop.search_url_pattern || ''}" placeholder="https://example.com/search?q={keyword}">
-        <small style="color:var(--text-muted)">{keyword} がカード名に置換されます</small>
+        <label class="form-label">検索URLパターン *</label>
+        <input type="text" class="form-input" id="shop-search-pattern" value="${shop.search_url_pattern || ''}" placeholder="https://www.hareruya2.com/product-list?keyword={keyword}">
+        <small style="color:var(--text-muted)">{keyword} が検索時にカード名へ置換されます</small>
       </div>
       <div class="form-group">
-        <label class="form-label">取得方式</label>
+        <label class="form-label">取得方式 (推奨方式が自動選択されます)</label>
         <select class="form-select" id="shop-provider">
-          ${['link-only', 'rakuten-api', 'yahoo-api', 'surugaya-scraper', 'yuyutei-scraper'].map(p =>
-            `<option value="${p}" ${shop.provider_type === p ? 'selected' : ''}>${p}</option>`
+          ${[
+            { id: 'link-only', label: 'link-only (汎用リンク・推奨)' },
+            { id: 'mercari-scraper', label: 'mercari-scraper (メルカリ専用)' },
+            { id: 'surugaya-scraper', label: 'surugaya-scraper (駿河屋専用)' },
+            { id: 'yuyutei-scraper', label: 'yuyutei-scraper (遊々亭専用)' },
+            { id: 'cardrush-scraper', label: 'cardrush-scraper (カードラッシュ専用)' },
+            { id: 'rakuten-api', label: 'rakuten-api (楽天市場API)' },
+            { id: 'yahoo-api', label: 'yahoo-api (Yahoo!ショッピングAPI)' }
+          ].map(p =>
+            `<option value="${p.id}" ${shop.provider_type === p.id ? 'selected' : ''}>${p.label}</option>`
           ).join('')}
         </select>
       </div>
@@ -131,6 +156,66 @@ const Shops = {
         </div>
       </div>
     `;
+  },
+
+  async autoDetectShop() {
+    const input = document.getElementById('shop-lookup-input');
+    const status = document.getElementById('shop-detect-status');
+    const btn = document.getElementById('btn-detect-shop');
+    const query = input?.value.trim();
+
+    if (!query) {
+      Components.showToast('ショップ名またはURLを入力してください', 'warning');
+      input?.focus();
+      return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ 検出中...'; }
+    if (status) status.innerHTML = '<span style="color:var(--accent)">🔍 ショップ情報と検索URLパターンを解析中...</span>';
+
+    try {
+      const info = await API.lookupShop(query);
+      if (!info || !info.name) {
+        throw new Error('ショップ情報を取得できませんでした');
+      }
+
+      // 各フォーム要素に自動反映
+      const nameEl = document.getElementById('shop-name');
+      const urlEl = document.getElementById('shop-url');
+      const patternEl = document.getElementById('shop-search-pattern');
+      const providerEl = document.getElementById('shop-provider');
+      const scrapeEl = document.getElementById('shop-scrape');
+      const intervalEl = document.getElementById('shop-interval');
+
+      if (nameEl) nameEl.value = info.name;
+      if (urlEl) urlEl.value = info.url;
+      if (patternEl) patternEl.value = info.search_url_pattern || '';
+      if (providerEl && info.provider_type) {
+        providerEl.value = info.provider_type;
+      }
+      if (scrapeEl) {
+        scrapeEl.checked = info.scrape_enabled !== 0;
+      }
+      if (intervalEl && info.request_interval_ms) {
+        intervalEl.value = info.request_interval_ms;
+      }
+
+      if (status) {
+        status.innerHTML = `
+          <span style="color:var(--success);font-weight:bold">
+            ✨ 【${info.name}】の情報を自動入力しました！（推奨方式: ${info.provider_type} / ${info.description || '自動設定完了'}）
+          </span>
+        `;
+      }
+      Components.showToast(`「${info.name}」の設定を自動入力しました ✓`, 'success');
+    } catch (e) {
+      if (status) {
+        status.innerHTML = `<span style="color:var(--danger)">⚠️ 検出エラー: ${e.message}</span>`;
+      }
+      Components.showToast(`自動検出失敗: ${e.message}`, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '🔍 自動取得'; }
+    }
   },
 
   getFormData() {
@@ -147,9 +232,9 @@ const Shops = {
   showAddModal() {
     Components.showModal('ショップ追加', this.getFormHtml(), async () => {
       const data = this.getFormData();
-      if (!data.name || !data.url) { Components.showToast('名前とURLは必須です', 'warning'); return; }
+      if (!data.name || !data.url) { Components.showToast('ショップ名とURLは必須です', 'warning'); return; }
       await API.createShop(data);
-      Components.showToast('ショップを追加しました', 'success');
+      Components.showToast('ショップを追加しました ✓', 'success');
       this.refresh();
     });
   },
@@ -159,9 +244,9 @@ const Shops = {
     if (!shop) return;
     Components.showModal('ショップ編集', this.getFormHtml(shop), async () => {
       const data = this.getFormData();
-      if (!data.name || !data.url) { Components.showToast('名前とURLは必須です', 'warning'); return; }
+      if (!data.name || !data.url) { Components.showToast('ショップ名とURLは必須です', 'warning'); return; }
       await API.updateShop(id, data);
-      Components.showToast('ショップを更新しました', 'success');
+      Components.showToast('ショップを更新しました ✓', 'success');
       this.refresh();
     });
   },
