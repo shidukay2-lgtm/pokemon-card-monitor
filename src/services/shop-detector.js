@@ -89,7 +89,7 @@ const PRESET_SHOPS = [
     keywords: ['トレトク', 'toretoku'],
     name: 'トレトク',
     url: 'https://www.toretoku.jp',
-    search_url_pattern: 'https://www.toretoku.jp/purchaselist/pokemon/?sword={keyword}',
+    search_url_pattern: 'https://www.toretoku.jp/pokemon/?word={keyword}',
     provider_type: 'link-only',
     scrape_enabled: 0,
     request_interval_ms: 3000,
