@@ -7,6 +7,7 @@ const { SurugayaScraper } = require('../providers/surugaya-scraper');
 const { YuyuteiScraper } = require('../providers/yuyutei-scraper');
 const { CardRushScraper } = require('../providers/cardrush-scraper');
 const { MercariScraper } = require('../providers/mercari-scraper');
+const { ToremaScraper } = require('../providers/torema-scraper');
 const { LinkOnlyProvider } = require('../providers/link-only');
 const { getPriceTracker } = require('./price-tracker');
 const { filterResults } = require('../utils/relevance-filter');
@@ -21,6 +22,7 @@ const PROVIDER_MAP = {
   'yuyutei-scraper': YuyuteiScraper,
   'cardrush-scraper': CardRushScraper,
   'mercari-scraper': MercariScraper,
+  'torema-scraper': ToremaScraper,
   'link-only': LinkOnlyProvider,
 };
 
