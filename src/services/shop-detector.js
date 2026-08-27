@@ -70,10 +70,10 @@ const PRESET_SHOPS = [
     name: 'トレマ',
     url: 'https://www.tcgmp.jp',
     search_url_pattern: 'https://www.tcgmp.jp/product/?order=I1&style=N&word={keyword}&prc_id=44&alf=0',
-    provider_type: 'link-only',
-    scrape_enabled: 0,
+    provider_type: 'torema-scraper',
+    scrape_enabled: 1,
     request_interval_ms: 3000,
-    description: 'トレカ通販モール（ポケカカテゴリ指定検索リンク生成・推奨: link-only）'
+    description: 'トレカ通販モール（リアルタイム価格＆個別商品ページ取得対応）'
   },
   {
     keywords: ['晴れる屋', '晴れる屋2', 'hareruya', 'hareruya2'],
