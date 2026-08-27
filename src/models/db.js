@@ -44,6 +44,11 @@ class DB {
     try {
       this.db.run("UPDATE shops SET url = 'https://www.tcgmp.jp', search_url_pattern = 'https://www.tcgmp.jp/product/?prc_id=5&word={keyword}', provider_type = 'link-only' WHERE name LIKE '%トレマ%' OR url LIKE '%torema.jp%'");
     } catch (e) { /* ignore */ }
+    // トレトクの検索URL更新
+    try {
+      this.db.run("UPDATE shops SET search_url_pattern = 'https://www.toretoku.jp/pokemon/?word={keyword}' WHERE name LIKE '%トレトク%' AND search_url_pattern LIKE '%purchaselist%'");
+      this.db.run("DELETE FROM price_records WHERE product_url LIKE '%purchaselist%'");
+    } catch (e) { /* ignore */ }
 
     this._save();
     this._ready = true;
