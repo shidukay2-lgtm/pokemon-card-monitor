@@ -40,6 +40,10 @@ class DB {
     try {
       this.db.run("UPDATE shops SET search_url_pattern = 'https://www.suruga-ya.jp/search?category=50101&search_word={keyword}' WHERE name = '駿河屋' AND search_url_pattern LIKE '%category=&%'");
     } catch (e) { /* ignore */ }
+    // トレマの検索URL・URL更新
+    try {
+      this.db.run("UPDATE shops SET url = 'https://www.tcgmp.jp', search_url_pattern = 'https://www.tcgmp.jp/product/?prc_id=5&word={keyword}', provider_type = 'link-only' WHERE name LIKE '%トレマ%' OR url LIKE '%torema.jp%'");
+    } catch (e) { /* ignore */ }
 
     this._save();
     this._ready = true;
