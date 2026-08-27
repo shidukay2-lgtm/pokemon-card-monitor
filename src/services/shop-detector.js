@@ -66,6 +66,16 @@ const PRESET_SHOPS = [
     description: 'Yahoo!ショッピング公式APIによるデータ取得'
   },
   {
+    keywords: ['トレマ', 'torema', 'tcgmp', 'トレマ通販'],
+    name: 'トレマ',
+    url: 'https://www.tcgmp.jp',
+    search_url_pattern: 'https://www.tcgmp.jp/product/?prc_id=5&word={keyword}',
+    provider_type: 'link-only',
+    scrape_enabled: 0,
+    request_interval_ms: 3000,
+    description: 'トレカ通販モール（ポケカカテゴリ検索リンク生成・推奨: link-only）'
+  },
+  {
     keywords: ['晴れる屋', '晴れる屋2', 'hareruya', 'hareruya2'],
     name: '晴れる屋2',
     url: 'https://www.hareruya2.com',
