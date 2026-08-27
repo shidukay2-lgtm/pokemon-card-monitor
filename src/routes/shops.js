@@ -42,9 +42,10 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const db = await getDB();
-    const shop = db.getShop(req.params.id);
+    const id = parseInt(req.params.id, 10);
+    const shop = db.getShop(id);
     if (!shop) return res.status(404).json({ success: false, message: 'ショップが見つかりません' });
-    const updated = db.updateShop(req.params.id, { ...shop, ...req.body });
+    const updated = db.updateShop(id, { ...shop, ...req.body });
     res.json({ success: true, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -54,7 +55,8 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const db = await getDB();
-    db.deleteShop(req.params.id);
+    const id = parseInt(req.params.id, 10);
+    db.deleteShop(id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
