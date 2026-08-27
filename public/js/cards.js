@@ -284,15 +284,33 @@ const Cards = {
   async toggleActive(id, currentState) {
     const card = this.cards.find(c => c.id === id);
     if (!card) return;
-    await API.updateCard(id, { ...card, is_active: currentState ? 0 : 1 });
-    this.refresh();
+    const nextState = currentState ? 0 : 1;
+    try {
+      await API.updateCard(id, { ...card, is_active: nextState });
+      Components.showToast(`「${card.name}」を${nextState ? '監視中に設定' : '一時停止'}しました`, 'success');
+      await this.refresh();
+      if (typeof Dashboard !== 'undefined' && Dashboard.refresh) {
+        Dashboard.refresh();
+      }
+    } catch (e) {
+      Components.showToast(`状態変更失敗: ${e.message}`, 'error');
+    }
   },
 
   async remove(id) {
-    if (await Components.confirm('このカードを削除しますか？関連する価格データも削除されます。')) {
-      await API.deleteCard(id);
-      Components.showToast('カードを削除しました', 'success');
-      this.refresh();
+    const card = this.cards.find(c => c.id === id);
+    const cardName = card ? card.name : 'カード';
+    if (await Components.confirm(`「${cardName}」を削除しますか？関連する価格データも削除されます。`)) {
+      try {
+        await API.deleteCard(id);
+        Components.showToast(`「${cardName}」を削除しました`, 'success');
+        await this.refresh();
+        if (typeof Dashboard !== 'undefined' && Dashboard.refresh) {
+          Dashboard.refresh();
+        }
+      } catch (e) {
+        Components.showToast(`削除失敗: ${e.message}`, 'error');
+      }
     }
   },
 };
