@@ -169,7 +169,7 @@ class Scheduler {
       if (!card) return;
 
       const shops = db.getActiveShops().filter(s => s.scrape_enabled);
-      const tracker = getPriceTracker();
+      const tracker = await getPriceTracker();
       const filterSettings = db.getAllSettings ? db.getAllSettings() : {};
 
       for (const shop of shops) {
