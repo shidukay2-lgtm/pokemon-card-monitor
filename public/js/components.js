@@ -48,9 +48,24 @@ const Components = {
     overlay.onclick = (e) => { if (e.target === overlay) close(); };
 
     if (onSave) {
-      document.getElementById('modal-save-btn').onclick = () => {
-        onSave();
-        close();
+      const saveBtn = document.getElementById('modal-save-btn');
+      saveBtn.onclick = async () => {
+        const originalText = saveBtn.textContent;
+        saveBtn.disabled = true;
+        saveBtn.textContent = '保存中...';
+        try {
+          const result = await onSave();
+          if (result !== false) {
+            close();
+          }
+        } catch (e) {
+          console.error('Modal save error:', e);
+        } finally {
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText;
+          }
+        }
       };
     }
   },
