@@ -118,8 +118,9 @@ INSERT OR IGNORE INTO shops (id, name, url, search_url_pattern, provider_type) V
   (1, '楽天市場', 'https://www.rakuten.co.jp/', 'https://search.rakuten.co.jp/search/mall/{keyword}/', 'rakuten-api'),
   (2, 'Yahoo!ショッピング', 'https://shopping.yahoo.co.jp/', 'https://shopping.yahoo.co.jp/search?p={keyword}', 'yahoo-api'),
   (3, '駿河屋', 'https://www.suruga-ya.jp/', 'https://www.suruga-ya.jp/search?category=50101&search_word={keyword}', 'surugaya-scraper'),
-  (4, '遊々亭', 'https://yuyu-tei.jp/', 'https://yuyu-tei.jp/sell/poc/s/{keyword}', 'yuyutei-scraper'),
-  (5, 'カードラッシュ', 'https://www.cardrush-pokemon.jp/', 'https://www.cardrush-pokemon.jp/?mode=srh&keyword={keyword}', 'link-only'),
-  (6, 'メルカリ', 'https://jp.mercari.com/', 'https://jp.mercari.com/search?keyword={keyword}', 'link-only'),
+  (4, '遊々亭', 'https://yuyu-tei.jp/', 'https://yuyu-tei.jp/sell/poc/s/search?search_word={keyword}', 'yuyutei-scraper'),
+  (5, 'カードラッシュ', 'https://www.cardrush-pokemon.jp/', 'https://www.cardrush-pokemon.jp/?mode=srh&keyword={keyword}', 'cardrush-scraper'),
+  (6, 'メルカリ', 'https://jp.mercari.com/', 'https://jp.mercari.com/search?keyword={keyword}', 'mercari-scraper'),
   (7, 'Amazon', 'https://www.amazon.co.jp/', 'https://www.amazon.co.jp/s?k={keyword}', 'link-only'),
-  (8, 'トレトク', 'https://www.toretoku.jp/', 'https://www.toretoku.jp/purchaselist/pokemon/?sword={keyword}', 'link-only');
+  (8, 'トレトク', 'https://www.toretoku.jp/', 'https://www.toretoku.jp/pokemon/?word={keyword}', 'link-only'),
+  (9, 'トレマ', 'https://www.tcgmp.jp/', 'https://www.tcgmp.jp/product/?order=I1&style=N&word={keyword}&prc_id=44&alf=0', 'link-only');
