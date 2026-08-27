@@ -244,10 +244,19 @@ const Cards = {
   showAddModal() {
     Components.showModal('カード追加', this.getFormHtml(), async () => {
       const data = this.getFormData();
-      if (!data.name) { Components.showToast('カード名を入力してください', 'warning'); return; }
-      await API.createCard(data);
-      Components.showToast('カードを追加しました', 'success');
-      this.refresh();
+      if (!data.name) {
+        Components.showToast('カード名を入力してください', 'warning');
+        return false;
+      }
+      try {
+        await API.createCard(data);
+        Components.showToast('カードを追加しました ✓', 'success');
+        await this.refresh();
+        return true;
+      } catch (e) {
+        Components.showToast(`カード追加失敗: ${e.message}`, 'error');
+        return false;
+      }
     });
   },
 
@@ -256,10 +265,19 @@ const Cards = {
     if (!card) return;
     Components.showModal('カード編集', this.getFormHtml(card), async () => {
       const data = this.getFormData();
-      if (!data.name) { Components.showToast('カード名を入力してください', 'warning'); return; }
-      await API.updateCard(id, data);
-      Components.showToast('カードを更新しました', 'success');
-      this.refresh();
+      if (!data.name) {
+        Components.showToast('カード名を入力してください', 'warning');
+        return false;
+      }
+      try {
+        await API.updateCard(id, data);
+        Components.showToast('カードを更新しました ✓', 'success');
+        await this.refresh();
+        return true;
+      } catch (e) {
+        Components.showToast(`カード更新失敗: ${e.message}`, 'error');
+        return false;
+      }
     });
   },
 
