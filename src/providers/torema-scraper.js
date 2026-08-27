@@ -43,7 +43,7 @@ class ToremaScraper extends BaseProvider {
           if (item && item.id && item.price !== undefined && item.price !== null) {
             const price = parseInt(item.price, 10);
             if (!isNaN(price) && price > 0) {
-              const detailUrl = `https://www.tcgmp.jp/product/detail?id=${item.id}`;
+              const detailUrl = `https://www.tcgmp.jp/product/detail?id=${item.id}&referer=1`;
               results.push(this.createResult({
                 name: item.name || `${item.id}`,
                 price: price,
@@ -67,7 +67,7 @@ class ToremaScraper extends BaseProvider {
         if (!matchId) return;
 
         const detailId = matchId[1];
-        const detailUrl = `https://www.tcgmp.jp/product/detail?id=${detailId}`;
+        const detailUrl = `https://www.tcgmp.jp/product/detail?id=${detailId}&referer=1`;
         const name = $a.text().trim();
         const $container = $a.closest('tr, li, div[class*="product"], .box, .item');
         const containerText = $container.text();
