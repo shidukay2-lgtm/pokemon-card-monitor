@@ -123,4 +123,4 @@ INSERT OR IGNORE INTO shops (id, name, url, search_url_pattern, provider_type) V
   (6, 'メルカリ', 'https://jp.mercari.com/', 'https://jp.mercari.com/search?keyword={keyword}', 'mercari-scraper'),
   (7, 'Amazon', 'https://www.amazon.co.jp/', 'https://www.amazon.co.jp/s?k={keyword}', 'link-only'),
   (8, 'トレトク', 'https://www.toretoku.jp/', 'https://www.toretoku.jp/pokemon/?word={keyword}', 'link-only'),
-  (9, 'トレマ', 'https://www.tcgmp.jp/', 'https://www.tcgmp.jp/product/?order=I1&style=N&word={keyword}&prc_id=44&alf=0', 'link-only');
+  (9, 'トレマ', 'https://www.tcgmp.jp/', 'https://www.tcgmp.jp/product/?order=I1&style=N&word={keyword}&prc_id=44&alf=0', 'torema-scraper');
