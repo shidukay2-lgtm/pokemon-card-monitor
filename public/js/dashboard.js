@@ -309,16 +309,24 @@ const Dashboard = {
         if (entry && entry.price !== null && entry.price > 0) {
           const isMin = entry.price === minPrice && minPrice > 0;
           const href = entry.product_url ? `href="${entry.product_url}" target="_blank" rel="noopener"` : '';
+          const stockLabel = entry.stock_status === 'in_stock' ? '在庫あり' : (entry.stock_status === 'out_of_stock' ? '在庫なし' : '在庫');
+          const stockColor = entry.stock_status === 'in_stock' ? 'var(--success)' : 'var(--text-muted)';
           html += `
             <a class="mobile-shop-pill" ${href} style="${isMin ? 'border-color:var(--success);background:var(--success-bg)' : ''}">
-              <span class="mobile-shop-name">${shop.name} ↗</span>
+              <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+                <span class="mobile-shop-name">${shop.name} ↗</span>
+                <span style="font-size:0.65rem;color:${stockColor}">${stockLabel}</span>
+              </div>
               <span class="mobile-shop-price" style="${isMin ? 'color:var(--success)' : ''}">${Components.formatPrice(entry.price)}</span>
             </a>
           `;
         } else if (entry && entry.product_url) {
           html += `
             <a class="mobile-shop-pill" href="${entry.product_url}" target="_blank" rel="noopener" style="border-color:rgba(99,102,241,0.4);background:rgba(99,102,241,0.08)">
-              <span class="mobile-shop-name">${shop.name} ↗</span>
+              <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+                <span class="mobile-shop-name">${shop.name} ↗</span>
+                <span style="font-size:0.65rem;color:var(--accent-hover)">リンク</span>
+              </div>
               <span class="mobile-shop-price" style="color:var(--accent-hover);font-size:0.75rem">🔍 検索</span>
             </a>
           `;
