@@ -42,7 +42,8 @@ class DB {
     } catch (e) { /* ignore */ }
     // トレマの検索URL・URL更新
     try {
-      this.db.run("UPDATE shops SET url = 'https://www.tcgmp.jp', search_url_pattern = 'https://www.tcgmp.jp/product/?prc_id=5&word={keyword}', provider_type = 'link-only' WHERE name LIKE '%トレマ%' OR url LIKE '%torema.jp%'");
+      this.db.run("UPDATE shops SET url = 'https://www.tcgmp.jp', search_url_pattern = 'https://www.tcgmp.jp/product/?order=I1&style=N&word={keyword}&prc_id=44&alf=0', provider_type = 'link-only' WHERE name LIKE '%トレマ%' OR url LIKE '%torema.jp%' OR url LIKE '%tcgmp.jp%'");
+      this.db.run("DELETE FROM price_records WHERE shop_id IN (SELECT id FROM shops WHERE name LIKE '%トレマ%')");
     } catch (e) { /* ignore */ }
     // トレトクの検索URL更新
     try {
