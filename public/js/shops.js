@@ -232,10 +232,19 @@ const Shops = {
   showAddModal() {
     Components.showModal('ショップ追加', this.getFormHtml(), async () => {
       const data = this.getFormData();
-      if (!data.name || !data.url) { Components.showToast('ショップ名とURLは必須です', 'warning'); return; }
-      await API.createShop(data);
-      Components.showToast('ショップを追加しました ✓', 'success');
-      this.refresh();
+      if (!data.name || !data.url) {
+        Components.showToast('ショップ名とURLは必須です', 'warning');
+        return false;
+      }
+      try {
+        await API.createShop(data);
+        Components.showToast('ショップを追加しました ✓', 'success');
+        await this.refresh();
+        return true;
+      } catch (e) {
+        Components.showToast(`追加失敗: ${e.message}`, 'error');
+        return false;
+      }
     });
   },
 
@@ -244,10 +253,19 @@ const Shops = {
     if (!shop) return;
     Components.showModal('ショップ編集', this.getFormHtml(shop), async () => {
       const data = this.getFormData();
-      if (!data.name || !data.url) { Components.showToast('ショップ名とURLは必須です', 'warning'); return; }
-      await API.updateShop(id, data);
-      Components.showToast('ショップを更新しました ✓', 'success');
-      this.refresh();
+      if (!data.name || !data.url) {
+        Components.showToast('ショップ名とURLは必須です', 'warning');
+        return false;
+      }
+      try {
+        await API.updateShop(id, data);
+        Components.showToast('ショップを更新しました ✓', 'success');
+        await this.refresh();
+        return true;
+      } catch (e) {
+        Components.showToast(`更新失敗: ${e.message}`, 'error');
+        return false;
+      }
     });
   },
 
