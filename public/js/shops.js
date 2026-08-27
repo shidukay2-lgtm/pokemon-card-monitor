@@ -273,15 +273,33 @@ const Shops = {
   async toggleActive(id, currentState) {
     const shop = this.shops.find(s => s.id === id);
     if (!shop) return;
-    await API.updateShop(id, { ...shop, is_active: currentState ? 0 : 1 });
-    this.refresh();
+    const nextState = currentState ? 0 : 1;
+    try {
+      await API.updateShop(id, { ...shop, is_active: nextState });
+      Components.showToast(`「${shop.name}」を${nextState ? '有効' : '無効'}にしました`, 'success');
+      await this.refresh();
+      if (typeof Dashboard !== 'undefined' && Dashboard.refresh) {
+        Dashboard.refresh();
+      }
+    } catch (e) {
+      Components.showToast(`状態変更失敗: ${e.message}`, 'error');
+    }
   },
 
   async remove(id) {
-    if (await Components.confirm('このショップを削除しますか？')) {
-      await API.deleteShop(id);
-      Components.showToast('ショップを削除しました', 'success');
-      this.refresh();
+    const shop = this.shops.find(s => s.id === id);
+    const shopName = shop ? shop.name : 'ショップ';
+    if (await Components.confirm(`「${shopName}」を削除しますか？`)) {
+      try {
+        await API.deleteShop(id);
+        Components.showToast(`「${shopName}」を削除しました`, 'success');
+        await this.refresh();
+        if (typeof Dashboard !== 'undefined' && Dashboard.refresh) {
+          Dashboard.refresh();
+        }
+      } catch (e) {
+        Components.showToast(`削除失敗: ${e.message}`, 'error');
+      }
     }
   },
 };
