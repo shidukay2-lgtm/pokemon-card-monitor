@@ -10,7 +10,17 @@ function pickBestSearchResult(searchResults) {
   return searchResults.find(r => r.productUrl) || null;
 }
 
+const { KNOWN_TOREMA_IDS } = require('./torema-detail-resolver');
+
 function buildFallbackSearchUrl(shop, cardName) {
+  if (shop.name && (shop.name.includes('トレマ') || shop.url.includes('tcgmp'))) {
+    // 既知のトレマ商品IDから個別詳細ページを生成
+    for (const [key, id] of Object.entries(KNOWN_TOREMA_IDS)) {
+      if (cardName.includes(key) || key.includes(cardName)) {
+        return `https://www.tcgmp.jp/product/detail?id=${id}&referer=1`;
+      }
+    }
+  }
   if (shop.search_url_pattern) {
     return shop.search_url_pattern.replace('{keyword}', encodeURIComponent(cardName));
   }
