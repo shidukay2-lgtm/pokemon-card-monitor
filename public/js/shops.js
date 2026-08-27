@@ -135,6 +135,7 @@ const Shops = {
         <select class="form-select" id="shop-provider">
           ${[
             { id: 'link-only', label: 'link-only (汎用リンク・推奨)' },
+            { id: 'torema-scraper', label: 'torema-scraper (トレマ専用スクレイパー)' },
             { id: 'mercari-scraper', label: 'mercari-scraper (メルカリ専用)' },
             { id: 'surugaya-scraper', label: 'surugaya-scraper (駿河屋専用)' },
             { id: 'yuyutei-scraper', label: 'yuyutei-scraper (遊々亭専用)' },
