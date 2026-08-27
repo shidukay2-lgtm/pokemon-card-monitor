@@ -23,10 +23,82 @@ class ToremaScraper extends BaseProvider {
         timeout: 10000
       });
 
-      return this.parseResults(response.data, searchUrl);
+      const results = this.parseResults(response.data, searchUrl);
+
+      // 上位マッチカードについて、詳細ページから加盟店舗ごとの厳密な最安値と最安店舗名を補完
+      for (const item of results.slice(0, 3)) {
+        if (item.productUrl && item.productUrl.includes('detail?id=')) {
+          const detailData = await this.fetchDetailShopMinPrice(item.productUrl);
+          if (detailData && detailData.minPrice > 0) {
+            item.price = detailData.minPrice;
+            item.stockStatus = detailData.stockStatus;
+            if (detailData.minShopName) {
+              item.name = `${item.name} (${detailData.minShopName})`;
+            }
+          }
+        }
+      }
+
+      return results;
     } catch (error) {
       this.logger.error(`HTTP Error: ${error.message}`);
       return [];
+    }
+  }
+
+  /**
+   * 商品詳細ページ（detail?id=...）から全出品店舗の価格を取得し、加盟店中最安値を特定
+   * @param {string} detailUrl
+   * @returns {Promise<{minPrice: number, minShopName: string, stockStatus: string, offerCount: number}|null>}
+   */
+  async fetchDetailShopMinPrice(detailUrl) {
+    try {
+      const res = await axios.get(detailUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+        },
+        timeout: 5000
+      });
+
+      const $ = cheerio.load(res.data);
+      const offers = [];
+
+      $('#stocks_body tr.stock, tr.stock').each((_, el) => {
+        const $row = $(el);
+        const shopName = $row.find('a[href^="/shop/"]').first().text().trim();
+        const priceText = $row.find('strong.price, .price').first().text().trim();
+        const hasCart = $row.find('select.addcart, input.addcart, button.addcart').length > 0;
+
+        const priceMatch = priceText.match(/[\d,]+/);
+        if (shopName && priceMatch) {
+          const price = parseInt(priceMatch[0].replace(/,/g, ''), 10);
+          if (!isNaN(price) && price > 0) {
+            offers.push({
+              shopName,
+              price,
+              inStock: hasCart
+            });
+          }
+        }
+      });
+
+      if (offers.length === 0) return null;
+
+      // 在庫あり店舗を優先して最安値を抽出
+      const inStockOffers = offers.filter(o => o.inStock);
+      const bestOffer = inStockOffers.length > 0
+        ? inStockOffers.reduce((min, cur) => cur.price < min.price ? cur : min)
+        : offers.reduce((min, cur) => cur.price < min.price ? cur : min);
+
+      return {
+        minPrice: bestOffer.price,
+        minShopName: bestOffer.shopName,
+        stockStatus: bestOffer.inStock ? 'in_stock' : 'out_of_stock',
+        offerCount: offers.length
+      };
+    } catch (e) {
+      this.logger.warn(`詳細ページ加盟店価格取得スキップ: ${e.message}`);
+      return null;
     }
   }
 
