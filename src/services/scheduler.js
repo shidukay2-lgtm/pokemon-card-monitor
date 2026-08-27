@@ -161,6 +161,34 @@ class Scheduler {
     }
   }
 
+  // 単体カードの即時巡回（カード追加・編集時）
+  async patrolSingleCard(cardId) {
+    try {
+      const db = await getDB();
+      const card = db.getCard(cardId);
+      if (!card) return;
+
+      const shops = db.getActiveShops().filter(s => s.scrape_enabled);
+      const tracker = getPriceTracker();
+      const filterSettings = db.getAllSettings ? db.getAllSettings() : {};
+
+      for (const shop of shops) {
+        try {
+          const ProviderClass = PROVIDER_MAP[shop.provider_type];
+          if (!ProviderClass) continue;
+          const provider = new ProviderClass(shop);
+          const searchResults = await provider.search(card.name);
+          const filtered = filterResults(searchResults, card, filterSettings);
+          tracker.saveBestShopResult(db, card.id, shop, filtered, card.name);
+        } catch (e) {
+          logger.warn(`単体巡回エラー [${card.name}@${shop.name}]: ${e.message}`);
+        }
+      }
+    } catch (e) {
+      logger.error(`patrolSingleCard error: ${e.message}`);
+    }
+  }
+
   getStatus() {
     return {
       isRunning: this.isRunning, isEnabled: this.isEnabled, interval: this.intervalMinutes,
