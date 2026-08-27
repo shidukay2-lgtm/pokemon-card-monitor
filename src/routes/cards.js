@@ -95,6 +95,10 @@ router.post('/', async (req, res) => {
     }
 
     const card = db.createCard(cardData);
+    // バックグラウンドで即座に対象カードの価格・個別商品URLを取得
+    const { getScheduler } = require('../services/scheduler');
+    getScheduler().then(s => s.patrolSingleCard(card.id)).catch(() => {});
+
     res.json({ success: true, data: card });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -102,12 +106,16 @@ router.post('/', async (req, res) => {
 });
 
 // カード更新
-router.put('/:id', async (req, res) => {
+router.put('/:id(\\d+)', async (req, res) => {
   try {
     const db = await getDB();
-    const card = db.getCard(req.params.id);
+    const card = db.getCard(parseInt(req.params.id));
     if (!card) return res.status(404).json({ success: false, message: 'カードが見つかりません' });
-    const updated = db.updateCard(req.params.id, { ...card, ...req.body });
+    const updated = db.updateCard(parseInt(req.params.id), req.body);
+
+    const { getScheduler } = require('../services/scheduler');
+    getScheduler().then(s => s.patrolSingleCard(updated.id)).catch(() => {});
+
     res.json({ success: true, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
