@@ -94,20 +94,23 @@ class PriceTracker {
 
       for (const shop of activeShops) {
         const price = latestByShop.get(shop.id);
-        if (price) {
-          shopPrices[shop.id] = [price];
-          if (price.price != null && price.price > 0) {
-            if (minPrice === null || price.price < minPrice) {
-              minPrice = price.price;
-              minPriceShop = price.shop_name;
-            }
+        const fallbackUrl = buildFallbackSearchUrl(shop, card.name);
+
+        if (price && price.price != null && price.price > 0) {
+          shopPrices[shop.id] = [{
+            ...price,
+            product_url: price.product_url || fallbackUrl
+          }];
+          if (minPrice === null || price.price < minPrice) {
+            minPrice = price.price;
+            minPriceShop = price.shop_name;
           }
         } else {
           shopPrices[shop.id] = [{
             shop_id: shop.id,
             shop_name: shop.name,
             price: null,
-            product_url: buildFallbackSearchUrl(shop, card.name),
+            product_url: (price && price.product_url) || fallbackUrl,
             product_name: `${card.name} (${shop.name}で検索)`,
             stock_status: 'link_only',
           }];
