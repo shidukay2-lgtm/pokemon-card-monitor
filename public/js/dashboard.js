@@ -188,6 +188,8 @@ const Dashboard = {
             bodyHtml += `<span class="price ${cellClass}">${Components.formatPrice(entry.price)}</span>`;
           }
           bodyHtml += `<br>${Components.stockBadge(entry.stock_status)}</td>`;
+        } else if (entry && entry.product_url) {
+          bodyHtml += `<td><a href="${entry.product_url}" target="_blank" rel="noopener" class="btn btn-sm btn-secondary" style="font-size:0.75rem;padding:3px 8px;text-decoration:none;display:inline-flex;align-items:center;gap:3px">🔍 検索 ↗</a><br><small style="color:var(--text-muted);font-size:0.65rem">リンク検索</small></td>`;
         } else {
           bodyHtml += '<td style="color:var(--text-muted);font-size:0.85rem">該当なし</td>';
         }
@@ -311,6 +313,13 @@ const Dashboard = {
             <a class="mobile-shop-pill" ${href} style="${isMin ? 'border-color:var(--success);background:var(--success-bg)' : ''}">
               <span class="mobile-shop-name">${shop.name} ↗</span>
               <span class="mobile-shop-price" style="${isMin ? 'color:var(--success)' : ''}">${Components.formatPrice(entry.price)}</span>
+            </a>
+          `;
+        } else if (entry && entry.product_url) {
+          html += `
+            <a class="mobile-shop-pill" href="${entry.product_url}" target="_blank" rel="noopener" style="border-color:rgba(99,102,241,0.4);background:rgba(99,102,241,0.08)">
+              <span class="mobile-shop-name">${shop.name} ↗</span>
+              <span class="mobile-shop-price" style="color:var(--accent-hover);font-size:0.75rem">🔍 検索</span>
             </a>
           `;
         } else {
