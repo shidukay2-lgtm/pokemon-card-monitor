@@ -197,16 +197,17 @@ class DB {
   }
 
   getLatestPrices(cardId) {
-    // 各ショップの最新巡回レコード（MAX(id)）を取得
+    // 各ショップの最新有効価格レコードを優先取得（直近の価格データを安定保持）
     return this._all(
       `SELECT pr.*, s.name as shop_name, s.url as shop_url
        FROM price_records pr
        JOIN shops s ON pr.shop_id = s.id
        WHERE pr.card_id = ?
-       AND pr.id IN (
-         SELECT MAX(p2.id) FROM price_records p2
-         WHERE p2.card_id = ?
-         GROUP BY p2.shop_id
+       AND pr.id = (
+         SELECT p2.id FROM price_records p2
+         WHERE p2.card_id = ? AND p2.shop_id = pr.shop_id
+         ORDER BY CASE WHEN p2.price IS NOT NULL AND p2.price > 0 THEN 0 ELSE 1 END, p2.id DESC
+         LIMIT 1
        )
        ORDER BY CASE WHEN pr.price IS NULL THEN 1 ELSE 0 END, pr.price ASC`,
       [cardId, cardId]
