@@ -33,11 +33,12 @@ class PriceTracker {
     const fallbackUrl = buildFallbackSearchUrl(shop, cardName);
 
     if (best && best.price != null && best.price > 0) {
+      const maxPrice = best.maxPrice || best.originalPrice || best.price;
       db.addPriceRecord({
         card_id: cardId,
         shop_id: shop.id,
         price: best.price,
-        original_price: best.originalPrice || best.price,
+        original_price: maxPrice,
         stock_status: best.stockStatus || 'unknown',
         product_url: best.productUrl || fallbackUrl,
         product_name: best.name || '',
@@ -60,7 +61,7 @@ class PriceTracker {
     return 1;
   }
 
-  async trackPrices(cardId, shopId, results) {
+  async saveShopResults(cardId, shopId, results) {
     const db = await getDB();
     const shop = db.getShop(shopId);
     const card = db.getCard(cardId);
@@ -68,6 +69,10 @@ class PriceTracker {
     const saved = this.saveBestShopResult(db, cardId, shop, results, card.name);
     logger.info(`${saved}件の最安値を保存 (カード:${cardId}, ショップ:${shopId})`);
     return saved;
+  }
+
+  async trackPrices(cardId, shopId, results) {
+    return await this.saveShopResults(cardId, shopId, results);
   }
 
   async getPriceSummary(cardId) {
@@ -107,13 +112,24 @@ class PriceTracker {
         const fallbackUrl = buildFallbackSearchUrl(shop, card.name);
 
         if (price && price.price != null && price.price > 0) {
+          const hasRange = price.original_price && price.original_price > price.price;
+          const priceRangeStr = hasRange
+            ? `¥${price.price.toLocaleString()} 〜 ¥${price.original_price.toLocaleString()}`
+            : `¥${price.price.toLocaleString()}`;
+
           shopPrices[shop.id] = [{
             ...price,
-            product_url: price.product_url || fallbackUrl
+            product_url: price.product_url || fallbackUrl,
+            has_range: hasRange,
+            min_price: price.price,
+            max_price: price.original_price || price.price,
+            price_range_str: priceRangeStr
           }];
           if (minPrice === null || price.price < minPrice) {
             minPrice = price.price;
-            minPriceShop = price.shop_name;
+            minPriceShop = price.product_name && price.product_name.includes('(')
+              ? `${price.shop_name} ${price.product_name.split('(')[1].replace(')', '')}`
+              : price.shop_name;
           }
         } else {
           shopPrices[shop.id] = [{
