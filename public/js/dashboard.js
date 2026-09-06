@@ -1,82 +1,75 @@
-// ダッシュボード画面
+/**
+ * ダッシュボード画面（価格一覧）
+ */
 const Dashboard = {
   data: null,
   analyses: {},
-  filterState: null,
+  filterState: { name: '', rarity: '', targetStatus: '' },
 
-  async init() {
+  init() {
     this.loadFilterState();
-    await this.refresh();
-  },
-
-  async refresh() {
-    const container = document.getElementById('view-dashboard');
-    Components.loading(container);
-
-    try {
-      this.data = await API.getPrices();
-      // DBから取得した最新のAI診断結果を復元
-      if (this.data?.cards) {
-        this.data.cards.forEach(c => {
-          if (c.aiAnalysis && (!this.analyses[c.id] || !this.analyses[c.id].rating)) {
-            this.analyses[c.id] = c.aiAnalysis;
-          }
-        });
-      }
-      this.render();
-    } catch (e) {
-      Components.empty(container, '⚠️', 'データの読み込みに失敗しました');
-    }
+    this.render();
+    this.refresh();
   },
 
   loadFilterState() {
     try {
-      this.filterState = JSON.parse(localStorage.getItem('dashboard_filters')) || {};
-    } catch { this.filterState = {}; }
+      const saved = localStorage.getItem('dashboard_filter_state');
+      if (saved) this.filterState = JSON.parse(saved);
+    } catch (e) {}
   },
 
   saveFilterState() {
-    localStorage.setItem('dashboard_filters', JSON.stringify(this.filterState));
+    try {
+      localStorage.setItem('dashboard_filter_state', JSON.stringify(this.filterState));
+    } catch (e) {}
+  },
+
+  async refresh() {
+    try {
+      const res = await API.getPrices();
+      if (res && res.data) {
+        this.data = res.data;
+        if (this.data.cards) {
+          this.data.cards.forEach(card => {
+            if (card.aiAnalysis) {
+              this.analyses[card.id] = card.aiAnalysis;
+            }
+          });
+        }
+        this.render();
+      }
+    } catch (error) {
+      Components.showToast(`データ取得エラー: ${error.message}`, 'error');
+    }
   },
 
   render() {
-    const { cards, shops, totalCards, totalShops } = this.data || { cards: [], shops: [], totalCards: 0, totalShops: 0 };
-    const container = document.getElementById('view-dashboard');
-    const status = App.patrolStatus || {};
+    const container = document.getElementById('view-container');
+    if (!container) return;
+
+    const cards = this.data?.cards || [];
+    const shops = this.data?.shops || [];
+    const activeShops = shops.filter(s => s.is_active);
 
     container.innerHTML = `
-      <!-- 巡回進捗バナー -->
-      <div id="patrol-progress-banner" style="display:none;margin-bottom:16px;padding:12px 16px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px"></div>
-
-      <div class="stats-row">
-        <div class="stat-card">
-          <div class="stat-label">監視カード</div>
-          <div class="stat-value">${totalCards}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">有効ショップ</div>
-          <div class="stat-value">${totalShops}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">最終巡回</div>
-          <div class="stat-value" id="stat-last-patrol" style="font-size:1rem">${status.lastRun ? Components.formatDate(status.lastRun) : '未実行'}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">次回巡回</div>
-          <div class="stat-value" id="stat-next-patrol" style="font-size:1rem">${status.isEnabled && status.nextRun ? Components.formatDate(status.nextRun) : '-'}</div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">📊 価格比較</span>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="btn btn-sm btn-secondary" onclick="Dashboard.refresh()">🔄 更新</button>
-            <button class="btn btn-sm btn-primary" id="btn-patrol-now" onclick="Dashboard.patrol()">▶ 手動巡回</button>
-            <button class="btn btn-sm btn-secondary" id="btn-ai-analyze-all" onclick="Dashboard.analyzeAll()">🤖 AI一括診断</button>
+      <div class="card" style="border:none;background:transparent;padding:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <h2 style="font-size:1.4rem;font-weight:700;margin:0">📊 価格モニター</h2>
+            <span class="badge badge-secondary" style="font-size:0.85rem">${cards.length} 枚監視中 / ${activeShops.length} ショップ</span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary" id="btn-ai-analyze-all" onclick="Dashboard.analyzeAll()" style="font-size:0.85rem">🤖 AI一括診断</button>
+            <button class="btn btn-primary" id="btn-patrol" onclick="Dashboard.runPatrol()" style="font-size:0.85rem">▶ 手動巡回</button>
           </div>
         </div>
-        <div class="panel-body" style="padding:0">
+
+        <!-- 巡回進捗バナー -->
+        <div id="patrol-progress-banner" style="display:none;background:var(--bg-secondary);border:1px solid var(--accent);border-radius:8px;padding:12px 16px;margin-bottom:16px"></div>
+
+        <div class="card" style="padding:0;overflow:hidden">
+          <!-- フィルターバー -->
           <div class="filter-bar" style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap">
             <input type="text" class="filter-input" id="filter-name" placeholder="🔍 カード名で検索..." value="${this.filterState.name || ''}" oninput="Dashboard.applyFilter()" style="min-width:200px">
             <select class="filter-select" id="filter-rarity" onchange="Dashboard.applyFilter()">
@@ -181,13 +174,34 @@ const Dashboard = {
         if (entry && entry.price !== null && entry.price > 0) {
           const isMin = entry.price === minPrice && minPrice > 0;
           const cellClass = isMin ? 'price-min' : '';
+          const hasRange = entry.has_range || (entry.max_price && entry.max_price > entry.price) || (entry.original_price && entry.original_price > entry.price);
+          const maxVal = entry.max_price || entry.original_price || entry.price;
+          const minVal = entry.min_price || entry.price;
+
+          // 最安出品店舗名の抽出（例: 平安堂座光寺店）
+          let branchName = '';
+          if (entry.product_name && entry.product_name.includes('(')) {
+            const match = entry.product_name.match(/\(([^)]+)\)/);
+            if (match) branchName = match[1];
+          }
+
           bodyHtml += `<td>`;
           if (entry.product_url) {
-            bodyHtml += `<a href="${entry.product_url}" target="_blank" rel="noopener" class="price ${cellClass}">${Components.formatPrice(entry.price)} ↗</a>`;
+            bodyHtml += `<a href="${entry.product_url}" target="_blank" rel="noopener" class="price ${cellClass}" style="text-decoration:none;font-weight:700" title="クリックで最安値商品詳細ページを開く">${Components.formatPrice(minVal)} ↗</a>`;
           } else {
-            bodyHtml += `<span class="price ${cellClass}">${Components.formatPrice(entry.price)}</span>`;
+            bodyHtml += `<span class="price ${cellClass}">${Components.formatPrice(minVal)}</span>`;
           }
-          bodyHtml += `<br>${Components.stockBadge(entry.stock_status)}</td>`;
+
+          // 複数店舗の価格範囲（例: ¥6,000 〜 ¥10,500）
+          if (hasRange) {
+            bodyHtml += `<div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px;font-weight:600;letter-spacing:-0.2px">¥${minVal.toLocaleString()}〜¥${maxVal.toLocaleString()}</div>`;
+          }
+
+          if (branchName) {
+            bodyHtml += `<div style="margin-top:2px"><span style="display:inline-block;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font-size:0.68rem;background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:4px" title="${branchName}">🏪 ${branchName}</span></div>`;
+          }
+
+          bodyHtml += `<div style="margin-top:3px">${Components.stockBadge(entry.stock_status)}</div></td>`;
         } else if (entry && entry.product_url) {
           bodyHtml += `<td><a href="${entry.product_url}" target="_blank" rel="noopener" class="btn btn-sm btn-secondary" style="font-size:0.75rem;padding:3px 8px;text-decoration:none;display:inline-flex;align-items:center;gap:3px">🔍 検索 ↗</a><br><small style="color:var(--text-muted);font-size:0.65rem">リンク検索</small></td>`;
         } else {
@@ -197,7 +211,7 @@ const Dashboard = {
 
       // AI診断列（クリックで詳細モーダル）
       if (analysis && analysis.rating > 0) {
-        bodyHtml += `<td><div style="cursor:pointer" onclick="Dashboard.showAiDetail(${card.id})" title="クリックでAI診断の詳細を表示">${Components.aiRating(analysis)}<br><small style="color:var(--text-muted);font-size:0.7rem">${analysis.comment || ''}</small></div></td>`;
+        bodyHtml += `<td><div style="cursor:pointer" onclick="Dashboard.showAiDetail(${card.id})" title="クリックでAI診断の詳細を表示">${Components.aiRating(analysis)}<br><small style="color:var(--text-muted);font-size:0.7rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${analysis.comment || ''}</small></div></td>`;
       } else {
         bodyHtml += `<td><button class="btn btn-sm btn-secondary" onclick="Dashboard.analyzeCard(${card.id})" style="font-size:0.75rem;padding:3px 6px">🤖 診断</button></td>`;
       }
@@ -219,7 +233,6 @@ const Dashboard = {
     cards.forEach(card => {
       const analysis = this.analyses[card.id] || null;
       const minPrice = card.minPrice;
-      const minPriceShop = card.minPriceShop;
       const hasTargetMax = card.target_price_max > 0;
       const hasTargetMin = card.target_price_min > 0;
 
@@ -248,100 +261,92 @@ const Dashboard = {
         card.card_number ? `(${card.card_number})` : ''
       ].filter(Boolean).join(' ');
 
-      // AI診断セクション（スマホ用）
-      let aiSectionHtml = '';
-      if (analysis && analysis.rating > 0) {
-        const stars = '★'.repeat(analysis.rating) + '☆'.repeat(5 - analysis.rating);
-        const verdictLabels = { cheap: '割安・買い時', fair: '適正価格', expensive: '割高', unknown: '-' };
-        const verdictBadgeClass = analysis.verdict === 'cheap' ? 'badge-success' : (analysis.verdict === 'expensive' ? 'badge-danger' : 'badge-info');
-
-        aiSectionHtml = `
-          <div class="mobile-ai-box" onclick="Dashboard.showAiDetail(${card.id})" title="タップしてAI診断の詳細を確認">
-            <div class="mobile-ai-header">
-              <div class="mobile-ai-title">🤖 AI相場診断</div>
-              <span class="badge ${verdictBadgeClass}">${verdictLabels[analysis.verdict] || '診断済'}</span>
-            </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px">
-              <span style="color:#f59e0b;font-size:0.9rem;letter-spacing:1px">${stars}</span>
-              <span style="font-size:0.75rem;color:var(--accent-hover)">詳細を見る ↗</span>
-            </div>
-            <div class="mobile-ai-comment">💡 ${analysis.comment || '相場データを分析しました'}</div>
-          </div>
-        `;
-      } else {
-        aiSectionHtml = `
-          <div style="margin-top:10px;text-align:center">
-            <button class="btn btn-sm btn-secondary" onclick="Dashboard.analyzeCard(${card.id})" style="width:100%;font-size:0.75rem;padding:6px;border-style:dashed">
-              🤖 このカードのAI相場診断を実行
-            </button>
-          </div>
-        `;
-      }
-
-      html += `
-        <div class="mobile-card-card" data-card-name="${card.name}" data-rarity="${card.rarity || ''}" data-target-status="${targetStatusKey}">
-          <div class="mobile-card-top">
-            <div>
-              <div class="mobile-card-title">${card.name}</div>
-              ${cardInfoSub ? `<div class="mobile-card-meta">${cardInfoSub}</div>` : ''}
-            </div>
-            ${card.rarity ? `<span class="badge badge-primary">${card.rarity}</span>` : ''}
-          </div>
-
-          <div class="mobile-card-best-box">
-            <div>
-              <div class="mobile-best-label">最安値 (${minPriceShop || '-'})</div>
-              <div class="mobile-best-val">${minPrice ? Components.formatPrice(minPrice) : '該当なし'}</div>
-            </div>
-            <div>
-              ${targetStatusBadge}
-              ${targetRangeStr ? `<div style="font-size:0.65rem;color:var(--text-muted);text-align:right;margin-top:2px">目標: ${targetRangeStr}</div>` : ''}
-            </div>
-          </div>
-
-          <div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:4px;font-weight:bold">ショップ別価格</div>
-          <div class="mobile-shop-list">
-      `;
-
+      // 各ショップの価格バッジリスト
+      let shopBadgesHtml = '';
       activeShops.forEach(shop => {
         const prices = card.shopPrices[shop.id] || [];
         const entry = prices[0];
         if (entry && entry.price !== null && entry.price > 0) {
           const isMin = entry.price === minPrice && minPrice > 0;
-          const href = entry.product_url ? `href="${entry.product_url}" target="_blank" rel="noopener"` : '';
-          const stockLabel = entry.stock_status === 'in_stock' ? '在庫あり' : (entry.stock_status === 'out_of_stock' ? '在庫なし' : '在庫');
-          const stockColor = entry.stock_status === 'in_stock' ? 'var(--success)' : 'var(--text-muted)';
-          html += `
-            <a class="mobile-shop-pill" ${href} style="${isMin ? 'border-color:var(--success);background:var(--success-bg)' : ''}">
-              <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
-                <span class="mobile-shop-name">${shop.name} ↗</span>
-                <span style="font-size:0.65rem;color:${stockColor}">${stockLabel}</span>
+          const minBorder = isMin ? 'border:2px solid var(--accent-green);background:rgba(34,197,94,0.12);' : '';
+          const hasRange = entry.has_range || (entry.max_price && entry.max_price > entry.price) || (entry.original_price && entry.original_price > entry.price);
+          const maxVal = entry.max_price || entry.original_price || entry.price;
+          const minVal = entry.min_price || entry.price;
+
+          let branchName = '';
+          if (entry.product_name && entry.product_name.includes('(')) {
+            const match = entry.product_name.match(/\(([^)]+)\)/);
+            if (match) branchName = match[1];
+          }
+
+          const rangeText = hasRange ? `¥${minVal.toLocaleString()}〜¥${maxVal.toLocaleString()}` : Components.formatPrice(minVal);
+
+          shopBadgesHtml += `
+            <a href="${entry.product_url || '#'}" target="_blank" rel="noopener" class="mobile-shop-pill" style="${minBorder}text-decoration:none;display:flex;justify-content:space-between;align-items:center;padding:8px 12px;margin-bottom:6px;border-radius:8px;background:var(--bg-secondary)">
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="font-weight:600;font-size:0.85rem;color:var(--text-primary)">${shop.name}</span>
+                  ${isMin ? '<span class="badge badge-success" style="font-size:0.65rem;padding:1px 5px">最安値</span>' : ''}
+                </div>
+                ${branchName ? `<small style="font-size:0.7rem;color:var(--text-muted)">🏪 ${branchName}</small>` : ''}
               </div>
-              <span class="mobile-shop-price" style="${isMin ? 'color:var(--success)' : ''}">${Components.formatPrice(entry.price)}</span>
+              <div style="text-align:right">
+                <span class="price" style="font-weight:700;font-size:0.95rem;color:${isMin ? 'var(--accent-green)' : 'var(--text-primary)'}">${rangeText} ↗</span>
+                <div style="margin-top:2px">${Components.stockBadge(entry.stock_status)}</div>
+              </div>
             </a>
           `;
         } else if (entry && entry.product_url) {
-          html += `
-            <a class="mobile-shop-pill" href="${entry.product_url}" target="_blank" rel="noopener" style="border-color:rgba(99,102,241,0.4);background:rgba(99,102,241,0.08)">
-              <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
-                <span class="mobile-shop-name">${shop.name} ↗</span>
-                <span style="font-size:0.65rem;color:var(--accent-hover)">リンク</span>
-              </div>
-              <span class="mobile-shop-price" style="color:var(--accent-hover);font-size:0.75rem">🔍 検索</span>
+          shopBadgesHtml += `
+            <a href="${entry.product_url}" target="_blank" rel="noopener" class="mobile-shop-pill" style="text-decoration:none;display:flex;justify-content:space-between;align-items:center;padding:8px 12px;margin-bottom:6px;border-radius:8px;background:var(--bg-secondary);opacity:0.85">
+              <span style="font-weight:600;font-size:0.85rem;color:var(--text-secondary)">${shop.name}</span>
+              <span class="btn btn-sm btn-secondary" style="font-size:0.75rem;padding:2px 8px">🔍 検索 ↗</span>
             </a>
-          `;
-        } else {
-          html += `
-            <div class="mobile-shop-pill" style="opacity:0.6">
-              <span class="mobile-shop-name">${shop.name}</span>
-              <span class="mobile-shop-price" style="color:var(--text-muted);font-weight:normal">-</span>
-            </div>
           `;
         }
       });
 
-      html += `
+      // AI診断セクション（スマホ用）
+      let aiSectionHtml = '';
+      if (analysis && analysis.rating > 0) {
+        aiSectionHtml = `
+          <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);cursor:pointer" onclick="Dashboard.showAiDetail(${card.id})">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:0.75rem;color:var(--text-muted)">🤖 AI相場診断</span>
+              ${Components.aiRating(analysis)}
+            </div>
+            <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${analysis.comment || ''}</div>
           </div>
+        `;
+      } else {
+        aiSectionHtml = `
+          <div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+            <button class="btn btn-sm btn-secondary" onclick="Dashboard.analyzeCard(${card.id})" style="font-size:0.75rem;padding:3px 8px">🤖 AI診断</button>
+          </div>
+        `;
+      }
+
+      html += `
+        <div class="mobile-card-card card" data-card-name="${card.name}" data-rarity="${card.rarity || ''}" data-target-status="${targetStatusKey}" style="margin-bottom:12px;padding:14px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+            <div>
+              <strong style="font-size:1.05rem;color:var(--text-primary)">${card.name}</strong>
+              ${card.rarity ? `<span class="badge badge-primary" style="margin-left:6px;font-size:0.7rem">${card.rarity}</span>` : ''}
+              ${cardInfoSub ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px">${cardInfoSub}</div>` : ''}
+            </div>
+            <div>${targetStatusBadge}</div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;padding:6px 10px;background:var(--bg-tertiary);border-radius:6px">
+            <span style="font-size:0.8rem;color:var(--text-muted)">全ショップ最安値:</span>
+            <strong style="font-size:1.15rem;color:var(--accent-green)">${minPrice ? Components.formatPrice(minPrice) : '該当なし'}</strong>
+          </div>
+
+          <!-- 各ショップ価格リスト -->
+          <div style="margin-bottom:4px">
+            ${shopBadgesHtml}
+          </div>
+
           ${aiSectionHtml}
         </div>
       `;
@@ -390,18 +395,18 @@ const Dashboard = {
     });
   },
 
-  async patrol() {
-    const btn = document.getElementById('btn-patrol-now');
+  async runPatrol() {
+    const btn = document.getElementById('btn-patrol');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ 巡回中...'; }
-    Components.showToast('巡回を開始しました', 'info');
+    Components.showToast('ショップ巡回を開始しました...', 'info');
 
     const progressTimer = setInterval(async () => {
       await App.updatePatrolStatus();
       this.updateProgressDisplay();
-    }, 2000);
+    }, 1500);
 
     try {
-      await API.runPatrol();
+      await API.patrol();
       await App.updatePatrolStatus();
       await this.refresh();
       Components.showToast('巡回が完了しました ✓', 'success');
@@ -482,23 +487,22 @@ const Dashboard = {
 
     const stars = '★'.repeat(analysis.rating || 0) + '☆'.repeat(5 - (analysis.rating || 0));
     const verdictLabels = {
-      super_cheap: '🔥 爆アド・即買い推奨',
-      cheap: '🎯 割安・買い時',
-      fair: '⚖️ 適正相場',
-      expensive: '⚠️ 割高・様子見',
-      suspicious_cheap: '🚨 異常安値・状態注意',
+      bargain: '🔥 超特価・即買い推奨',
+      fair: '⚖️ 適正相場・買い頃',
+      overpriced: '⚠️ 割高・様子見推奨',
+      very_overpriced: '❌ 超割高・購入非推奨',
+      suspicious_cheap: '🚨 異常安値・状態要確認',
       unknown: 'データ不足'
     };
     const trendLabels = { up: '📈 上昇傾向', stable: '➡️ 横ばい・安定', down: '📉 下落傾向' };
 
-    const reasoning = analysis.reasoning || {};
-    const buybackPriceStr = reasoning.buybackPrice ? `¥${reasoning.buybackPrice.toLocaleString()}` : '取得中';
-    const fairPriceStr = reasoning.fairMarketPrice ? `¥${reasoning.fairMarketPrice.toLocaleString()}` : '-';
-    const buybackSourceStr = reasoning.buybackSource || '大手買取サイト・専門店推計';
-    const buybackRatioStr = reasoning.buybackRatio ? `${reasoning.buybackRatio}` : '-';
-
-    const minPriceVal = analysis.stats?.min;
+    const pa = analysis.priceAnalysis || analysis.reasoning || {};
+    const buybackPriceStr = pa.buybackPrice ? `¥${pa.buybackPrice.toLocaleString()}` : '取得中';
+    const fairPriceStr = pa.fairMarketPrice ? `¥${pa.fairMarketPrice.toLocaleString()}` : '-';
+    const buybackSourceStr = pa.buybackSource || '遊々亭 買取 (実測値)';
+    const minPriceVal = pa.currentMin || card.minPrice;
     const minPriceStr = minPriceVal ? `¥${minPriceVal.toLocaleString()}` : '-';
+    const minShopStr = pa.minShop || card.minPriceShop || '-';
 
     const modalHtml = `
       <div style="font-size:0.95rem">
@@ -527,20 +531,20 @@ const Dashboard = {
             <div style="background:var(--bg-tertiary);padding:8px 6px;border-radius:6px">
               <div style="font-size:0.7rem;color:var(--text-muted)">外部買取相場</div>
               <div style="font-size:1rem;font-weight:bold;color:var(--accent-hover);margin-top:2px">${buybackPriceStr}</div>
-              <div style="font-size:0.65rem;color:var(--text-muted)">${buybackSourceStr}</div>
+              <div style="font-size:0.65rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${buybackSourceStr}</div>
             </div>
             <div style="background:var(--bg-tertiary);padding:8px 6px;border-radius:6px">
               <div style="font-size:0.7rem;color:var(--text-muted)">監視ショップ最安</div>
               <div style="font-size:1rem;font-weight:bold;color:var(--success);margin-top:2px">${minPriceStr}</div>
-              <div style="font-size:0.65rem;color:var(--text-muted)">${analysis.stats?.minShop || '-'}</div>
+              <div style="font-size:0.65rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${minShopStr}</div>
             </div>
             <div style="background:var(--bg-tertiary);padding:8px 6px;border-radius:6px">
-              <div style="font-size:0.7rem;color:var(--text-muted)">市場適正目安</div>
+              <div style="font-size:0.7rem;color:var(--text-muted)">市場適正相場</div>
               <div style="font-size:1rem;font-weight:bold;color:var(--text-primary);margin-top:2px">${fairPriceStr}</div>
               <div style="font-size:0.65rem;color:var(--text-muted)">専門店相場中央値</div>
             </div>
           </div>
-          ${reasoning.buybackRatio ? `<div style="font-size:0.75rem;color:var(--text-secondary);margin-top:8px;text-align:right">買取価格比率: <strong>${buybackRatioStr}</strong>（最安値 ÷ 買取相場）</div>` : ''}
+          ${pa.buybackDiffPercent != null ? `<div style="font-size:0.75rem;color:var(--text-secondary);margin-top:8px;text-align:right">買取相場との乖離: <strong>${pa.buybackDiffPercent > 0 ? '+' : ''}${pa.buybackDiffPercent}%</strong></div>` : ''}
         </div>
 
         <!-- AI推論コメント＆アドバイス -->
@@ -551,7 +555,7 @@ const Dashboard = {
 
         <div style="font-size:0.75rem;color:var(--text-muted);display:flex;justify-content:space-between">
           <span>相場トレンド: <strong>${trendLabels[analysis.trend] || '横ばい'}</strong></span>
-          <span>分析方式: <strong>多角買取相場照合</strong></span>
+          <span>分析方式: <strong>複数買取サイト照合</strong></span>
         </div>
       </div>
     `;
