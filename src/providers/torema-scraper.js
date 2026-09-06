@@ -13,7 +13,7 @@ class ToremaScraper extends BaseProvider {
     const { KNOWN_TOREMA_IDS } = require('../services/torema-detail-resolver');
     const normalized = keyword.trim();
 
-    // 1. 既知のトレマ商品IDがある場合は、直接詳細ページから出品加盟店最安値を高速取得
+    // 1. 既知のトレマ商品IDがある場合は、直接詳細ページから出品加盟店の最安値〜最高値レンジを高速取得
     let directDetailId = null;
     for (const [key, id] of Object.entries(KNOWN_TOREMA_IDS)) {
       if (normalized === key || normalized.includes(key) || key.includes(normalized)) {
@@ -26,12 +26,17 @@ class ToremaScraper extends BaseProvider {
       const detailUrl = `https://www.tcgmp.jp/product/detail?id=${directDetailId}&referer=1`;
       this.logger.info(`直接詳細アクセス: ${keyword} -> ${detailUrl}`);
       try {
-        const detailData = await this.fetchDetailShopMinPrice(detailUrl);
+        const detailData = await this.fetchDetailShopPriceRange(detailUrl);
         if (detailData && detailData.minPrice > 0) {
-          const resName = detailData.minShopName ? `${keyword} (${detailData.minShopName})` : keyword;
+          const resName = detailData.minShopName
+            ? `${keyword} (${detailData.minShopName})`
+            : keyword;
           return [this.createResult({
             name: resName,
             price: detailData.minPrice,
+            originalPrice: detailData.maxPrice || detailData.minPrice,
+            maxPrice: detailData.maxPrice || detailData.minPrice,
+            offerCount: detailData.offerCount || 1,
             stockStatus: detailData.stockStatus,
             productUrl: detailUrl
           })];
@@ -62,13 +67,16 @@ class ToremaScraper extends BaseProvider {
       const html = await response.text();
       const results = this.parseResults(html, searchUrl);
 
-      // 上位マッチカードについて、詳細ページから加盟店舗ごとの厳密な最安値と最安店舗名を補完
+      // 上位マッチカードについて、詳細ページから加盟店舗ごとの厳密な最安値〜最高値レンジと最安店舗名を補完
       for (const item of results.slice(0, 2)) {
         if (item.productUrl && item.productUrl.includes('detail?id=')) {
           try {
-            const detailData = await this.fetchDetailShopMinPrice(item.productUrl);
+            const detailData = await this.fetchDetailShopPriceRange(item.productUrl);
             if (detailData && detailData.minPrice > 0) {
               item.price = detailData.minPrice;
+              item.originalPrice = detailData.maxPrice || detailData.minPrice;
+              item.maxPrice = detailData.maxPrice || detailData.minPrice;
+              item.offerCount = detailData.offerCount || 1;
               item.stockStatus = detailData.stockStatus;
               if (detailData.minShopName) {
                 item.name = `${item.name} (${detailData.minShopName})`;
@@ -88,12 +96,11 @@ class ToremaScraper extends BaseProvider {
   }
 
   /**
-   * 商品詳細ページ（detail?id=...）から全出品店舗の価格を取得し、加盟店中最安値を特定
+   * 商品詳細ページ（detail?id=...）から全出品店舗の価格を取得し、最安値〜最高値の範囲および最安店舗を特定
    * @param {string} detailUrl
-   * @returns {Promise<{minPrice: number, minShopName: string, stockStatus: string, offerCount: number}|null>}
+   * @returns {Promise<{minPrice: number, maxPrice: number, minShopName: string, stockStatus: string, offerCount: number}|null>}
    */
-  async fetchDetailShopMinPrice(detailUrl) {
-    // 最大2回試行
+  async fetchDetailShopPriceRange(detailUrl) {
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const res = await fetch(detailUrl, {
@@ -137,6 +144,7 @@ class ToremaScraper extends BaseProvider {
             if (!isNaN(minPrice) && minPrice > 0) {
               return {
                 minPrice,
+                maxPrice: minPrice,
                 minShopName: '',
                 stockStatus: 'in_stock',
                 offerCount: 1
@@ -146,16 +154,19 @@ class ToremaScraper extends BaseProvider {
           return null;
         }
 
-        // 在庫あり店舗を優先して最安値を抽出
+        // 在庫あり店舗を優先して最安値・最高値を算出
         const inStockOffers = offers.filter(o => o.inStock);
-        const bestOffer = inStockOffers.length > 0
-          ? inStockOffers.reduce((min, cur) => cur.price < min.price ? cur : min)
-          : offers.reduce((min, cur) => cur.price < min.price ? cur : min);
+        const targetOffers = inStockOffers.length > 0 ? inStockOffers : offers;
+        const prices = targetOffers.map(o => o.price);
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+        const bestOffer = targetOffers.find(o => o.price === minPrice) || targetOffers[0];
 
         return {
-          minPrice: bestOffer.price,
+          minPrice,
+          maxPrice,
           minShopName: bestOffer.shopName,
-          stockStatus: bestOffer.inStock ? 'in_stock' : 'out_of_stock',
+          stockStatus: inStockOffers.length > 0 ? 'in_stock' : 'out_of_stock',
           offerCount: offers.length
         };
       } catch (e) {
@@ -167,6 +178,11 @@ class ToremaScraper extends BaseProvider {
       }
     }
     return null;
+  }
+
+  // 後方互換性
+  async fetchDetailShopMinPrice(detailUrl) {
+    return this.fetchDetailShopPriceRange(detailUrl);
   }
 
   parseResults(html, searchUrl) {
@@ -186,6 +202,7 @@ class ToremaScraper extends BaseProvider {
               results.push(this.createResult({
                 name: item.name || `${item.id}`,
                 price: price,
+                originalPrice: price,
                 stockStatus: 'in_stock',
                 productUrl: detailUrl
               }));
@@ -218,6 +235,7 @@ class ToremaScraper extends BaseProvider {
             results.push(this.createResult({
               name,
               price,
+              originalPrice: price,
               stockStatus: 'in_stock',
               productUrl: detailUrl
             }));
